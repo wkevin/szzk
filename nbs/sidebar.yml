@@ -1,5 +1,6 @@
 website:
   sidebar:
     contents:
+      - index.ipynb
       - gd-gaokao.qmd
       - sz-zhongkao.qmd
