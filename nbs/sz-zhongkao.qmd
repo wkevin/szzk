@@ -1,0 +1,257 @@
+---
+title: "深圳中考"
+
+format:
+  html:
+    code-fold: false
+    echo: false
+    output: false
+    toc-expand: 2
+    toc-title: 目录
+    # fig-xxx 仅影响 matplotlib 绘图，不影响 pyecharts
+    fig-align: center
+    #fig-format: svg
+    #fig-dpi: 400 # svg 时无效
+
+comments:
+  giscus:
+    repo: wkevin/bitter-data
+
+---
+
+```{python}
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+plt.style.use('ggplot')
+plt.rcParams['axes.unicode_minus'] = False # 解决负号为方块
+plt.rcParams[f'font.{plt.rcParams["font.family"][0]}'] = ['Source Han Sans CN', 'Sarasa Mono Slab SC', 'Songti SC']
+
+# 已经出了成绩的最新年份
+scoredyear = '2022'
+```
+
+
+```{python}
+# 加载数据
+df = pd.read_csv(f'./sz-zhongkao/data.csv', decimal=',')
+l = len(df)
+
+# 添加每年的排序
+years = [str(y) for y in list(range(2019,int(scoredyear) + 1,1))]
+for y in years:
+  _l = len(df[df[f'[{y}]'].notnull()])
+  df = df.sort_values(by=f'[{y}]',  ascending=False)
+
+  zs = np.zeros(l)
+  zs[:] = np.nan
+  for i in range(0,_l,1):
+    zs[i] = i+1
+
+  df.insert(len(df.columns),y,zs)
+(df)
+```
+
+## 学校排名
+
+```{python}
+# 筛选当前最新出了成绩的学校，当年没出成绩的新学校不参与排名
+
+dfsort = df[df[scoredyear].notnull()][years + ['名称'] ] 
+dfsort.set_index(['名称'], inplace=True)
+# dfsort = dfsort.sort_values(by='2022', ascending=True)
+(dfsort)
+```
+
+```{python}
+#| output: true
+#| fig-align: center
+fig = plt.figure(figsize=(8,30), dpi=400)
+ax = fig.add_subplot()
+ax.set_title("深圳高中排名演变图")
+ax.invert_yaxis()
+ax.yaxis.set_ticks_position('right')
+ax.xaxis.set_ticks_position('top')
+
+# ax.plot(['[2019]','[2020]','[2021]','[2022]'], dft, marker='o')
+
+idx = 0
+for name, row in dfsort.iterrows():
+  idx += 1
+  ax.plot(years, row, marker='o')
+  # ax.text('[2022]',idx,name)
+  ax.annotate(name.replace('（一）',''), xy=(scoredyear, idx), xytext=(3.3,idx),verticalalignment='center')
+
+t = ax.text('2019', idx+3, 'https://wkevin.github.io/bitter-data/')
+```
+
+
+## 招生人数
+
+```{python}
+#| output: true
+
+print(f'以 {scoredyear} 年录取分数排序，新学校排在末尾。')
+```
+
+```{python}
+# dfsum: 累积数据
+# 全部学校参与计算招生人数
+dfsum = df.sort_values(by=f'[{scoredyear}]',  ascending=False) 
+dfsum = dfsum[['名称', '招生人数']]
+dfsum['名称'] = dfsum['名称'].str.replace("（一）","")
+dfsum['累计'] = dfsum['招生人数'].cumsum(axis=0)
+
+dfsum
+```
+
+
+```{python}
+from pyecharts import types
+from pyecharts import options as opts
+from pyecharts.charts import Bar,Grid,Sunburst
+```
+
+### 2023 AC 类招生人数
+
+```{python}
+#| output: true
+
+# 以 2022 录取分做升序 —— pyecharts 绘图是逆序的
+# df.iloc[::-1] 可以实现逆序
+
+bar = Bar(init_opts=opts.InitOpts()
+).add_dataset(
+    source= [dfsum.columns.values.tolist()] + dfsum.iloc[::-1].values.tolist()
+).add_yaxis(
+    series_name="",
+    y_axis=[],
+    label_opts=opts.LabelOpts(
+        is_show=True,
+        font_weight='bold',
+        position='insideRight'
+    ),
+).set_global_opts(
+    title_opts=opts.TitleOpts(
+        title="2023 AC 类招生人数对比图",
+        title_link="https://wkevin.github.io/bitter-data",
+        subtitle="https://wkevin.github.io/bitter-data",
+        subtitle_link="https://wkevin.github.io/bitter-data",
+        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12)
+    ),
+    legend_opts=opts.LegendOpts(
+      is_show=False
+    ),
+    xaxis_opts=opts.AxisOpts(name="招生人数"),
+    yaxis_opts=opts.AxisOpts(type_="category"),
+    visualmap_opts=opts.VisualMapOpts(
+        orient="horizontal",
+        pos_left="center",
+        min_=80,
+        max_=1700,
+        dimension=1,
+        range_color=["#D7DA8B", "#E15457"],
+    ),
+)
+
+grid = Grid(
+    init_opts=opts.InitOpts(
+        width="100%",
+        height="1600px",
+    ))
+
+grid.add(
+    bar,
+    opts.GridOpts(
+        pos_left='320px',
+        pos_right='20px',
+    ),
+    is_control_axis_index=True
+)
+grid.render_notebook()
+```
+
+### 等位图
+
+```{python}
+total = 60000
+
+data = []
+idx = 0
+sum = 0
+for name, row in dfsum.iterrows():
+  sum += row['招生人数']
+  idx += 1
+  data.append({
+    "name": str(idx) +'_'+ row['名称'],
+    "value": row['招生人数']
+  })
+
+
+data.append({
+  "name": "缺口",
+  "value": total - sum
+})
+data
+```
+
+```{python}
+data_grade =[
+  {"name": "A+", "value": total * 0.05 },
+  {"name": "A", "value": total*0.2},
+  {"name": "B+", "value": total*0.25},
+  {"name": "B", "value": total*0.25},
+  {"name": "C+", "value": total*0.2},
+  {"name": "C", "value": total*0.05},
+]
+data_grade
+```
+
+预估假设：
+
+2023 年 12+ 万报名，按 AC:D = 1:1 预估，AC 类考生约 6 万。
+
+```{python}
+#| output: true
+
+sunburst = Sunburst(init_opts=opts.InitOpts(width='100%',height='800px',renderer='svg')
+).add(
+    "",
+    data_pair=data_grade,
+    highlight_policy="ancestor",
+    radius=[0, "95%"],
+    sort_=types.JsCode("null"),
+    levels=[
+        {},
+        {"r0": "15%", "r": "23%", "label": {"align": "right"}},
+    ],
+    label_opts=opts.LabelOpts(font_size=12,font_weight='bold'),
+).add(
+    "",
+    data_pair=data,
+    highlight_policy="ancestor",
+    radius=[0, "95%"],
+    sort_=types.JsCode("null"),
+    levels=[
+        {},
+        {"r0": "25%", "r": "100%", "label": {"align": "right"}},
+    ],
+    label_opts=opts.LabelOpts(font_size=10),
+).set_global_opts(
+    title_opts=opts.TitleOpts(
+        title="2023 AC 类招生人数累计图",
+        subtitle="https://wkevin.github.io/bitter-data",
+        subtitle_link="https://wkevin.github.io/bitter-data",
+        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12)
+    ),
+    legend_opts=opts.LegendOpts(
+      is_show=False
+    ),
+)
+
+sunburst.render_notebook()
+```
+
+D 类就不作图了，看着太扎心了！
+

@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "Bitter Data"
+  site-url: "https://wkevin.github.io/bitter-data"
+  description: "Bitter Data"
+  repo-branch: main
+  repo-url: "https://github.com/wkevin/bitter-data"

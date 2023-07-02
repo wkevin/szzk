@@ -1,0 +1,181 @@
+---
+format: 
+  html:
+    title: "广东高考"
+    code-fold: false
+    echo: false
+    output: false
+    toc-expand: 2
+    toc-title: 目录
+    fig-align: center
+comments:
+  giscus: 
+    repo: wkevin/bitter-data
+---
+
+数据源自：
+
+- 广东省教育考试院
+  - [关于公布广东省2023年普通高考成绩各分数段数据的通知](https://eea.gd.gov.cn/zwgk_tjxx/content/post_4207233.html)
+  - [关于公布广东省2022年普通高考成绩各分数段数据的通知](https://eea.gd.gov.cn/zwgk_tjxx/content/post_3986282.html)
+
+## 2023 年
+
+### 分科人数
+
+
+```{python}
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+plt.style.use('ggplot')
+plt.rcParams['axes.unicode_minus'] = False # 解决负号为方块
+plt.rcParams[f'font.{plt.rcParams["font.family"][0]}'] = ['Source Han Sans CN', 'Sarasa Mono Slab SC', 'Songti SC']
+```
+
+2023年广东省普通高考应考考生：
+
+- 报考本科：751848 人
+- 报考专科：786461 人
+
+不做这个表还真不知道有 12 类考试方向，不知道书法、广播这些赛道情况如何？是否拥挤？
+
+
+```{python}
+dfc = pd.DataFrame(data={
+'普通类(历史)':[289685,289685],
+'普通类(物理)':[409604,409604],
+'高考体育类':[6992,13389],
+'高考美术类':[22565,35703],
+'高考音乐学类':[6021,9217],
+'高考音乐表演-声乐类':[6393,9639],
+'高考音乐表演-器乐类':[5755,9150],
+'高考舞蹈类':[1421,2596],
+'高考广播电视编导类':[1291,3661],
+'高考书法类':[506,1145],
+'高考播音与主持普通话类':[1444,2430],
+'高考播音与主持粤语类':[171,242],
+},
+index=['本科','专科'])
+dfc
+```
+
+
+```{python}
+#| output: true
+dft = dfc.T
+newidx = dft.index.to_list()
+newidx.append('合计')
+dfs = dft.sum()
+dft.loc[len(dft.index)] = dfs
+dft.set_index(pd.Series(newidx))
+```
+
+
+```{python}
+#| output: true
+#| fig-align: center
+
+fig = plt.figure(figsize=(8,6), dpi=400)
+ax = fig.add_subplot()
+ax.set_title("2023 广东高考人数")
+ax.text(-2, -100000, 'https://wkevin.github.io/bitter-data/')
+
+# ax.set_ylabel("广东高考人数")
+# ax.bar(df['普通类(历史)'])
+dfc.T.plot.bar(rot=40, ax=ax, color=['lightcoral','springgreen'])
+plt.show()
+```
+
+### 分数段人数
+
+下面详细统计一下 12 类中人数最多的两类普通类的分数段人数。
+
+首先恭喜和祝福 31 位文科状元，和 27 位理科状元，他们值得单独列一行。
+
+
+```{python}
+def group_data(df, group_num=10):
+  dffa = pd.DataFrame(columns=['分数段','本科-人数','专科-人数'])
+  dffl = pd.DataFrame(columns=['分数段','本科-人数','专科-人数'])
+
+  # 状元单独一行，太牛啦！
+  dffa.loc[0] = [f'{df[0:1].index.values[0]}', df[0:1]['本科-人数'].values[0], df[0:1]['专科-人数'].values[0]]
+
+  _len = len(df.index)
+  for i in range(int(_len/group_num)):
+    _dfs = df[i*group_num+1:(i+1)*group_num+1].sum()
+    _dfi = df[i*group_num+1:(i+1)*group_num+1].index.to_list()
+    try:
+      dffl.loc[0] = [f'{_dfi[-1]}-{_dfi[0]}',_dfs[0],_dfs[2]]
+      dffa = pd.concat([dffl, dffa], axis=0)
+    except Exception as e:
+      print(f'{e},{_dfi}')
+  return dffa.reset_index(drop=True)
+
+
+color1 = '#F7A072'
+color2 = '#2486b9'
+def group_plot(df, title):
+  fig = plt.figure(figsize=(6,12), dpi=400)
+  ax = fig.add_subplot()
+  ax.set_title(title)
+  ax.text(-2000, -3, 'https://wkevin.github.io/bitter-data/', fontsize=6)
+
+  _len = len(df.values)
+  for i in range(_len):
+      ax.text(df.loc[i]['本科-人数']+100,i-0.4,df.loc[i]['本科-人数'],fontsize=4,color=color1)
+      ax.text(df.loc[i]['专科-人数']+100,i+0.1,df.loc[i]['专科-人数'],fontsize=4,color=color2)
+
+  df.set_index("分数段", inplace=True)
+  df.plot.barh(ax=ax, color=[color1,color2])
+  plt.show()
+```
+
+
+```{python}
+#| output: true
+#| fig-align: center
+
+_df = group_data(pd.read_csv(f'./gd-gaokao/2023-history.csv', decimal=',', index_col=0))
+group_plot(_df, title='2023 广东高考分数段人数（历史）')
+```
+
+
+```{python}
+#| output: true
+#| fig-align: center
+
+_df = group_data(pd.read_csv(f'./gd-gaokao/2023-phy.csv', decimal=',', index_col=0))
+group_plot(_df, title='2023 广东高考分数段人数（物理）')
+```
+
+历史类更接近正态分布，物理类高分更密集一些、更卷一些。
+
+## 2022 年
+
+2022 年广东高考：
+
+- 历史类：272196 人
+- 物理类：399216 人
+
+### 分数段人数
+
+
+```{python}
+#| output: true
+#| fig-align: center
+
+_df = group_data(pd.read_csv(f'./gd-gaokao/2022-history.csv', decimal=',', index_col=0))
+group_plot(_df, title='2022 广东高考分数段人数（历史）')
+```
+
+
+```{python}
+#| output: true
+#| fig-align: center
+
+_df = group_data(pd.read_csv(f'./gd-gaokao/2022-phy.csv', decimal=',', index_col=0))
+group_plot(_df, title='2022 广东高考分数段人数（物理）')
+```

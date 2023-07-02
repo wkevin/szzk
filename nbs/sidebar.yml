@@ -1,0 +1,5 @@
+website:
+  sidebar:
+    contents:
+      - gd-gaokao.qmd
+      - sz-zhongkao.qmd
