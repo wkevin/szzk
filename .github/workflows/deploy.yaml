@@ -6,11 +6,12 @@ permissions:
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ['main', 'master']
   workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps: 
+    steps:
       - uses: fastai/workflows/quarto-ghp@master
-          with: {torch_cpu: false}
+        with:
+          torch_cpu: false
