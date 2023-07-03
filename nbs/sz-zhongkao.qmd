@@ -20,14 +20,34 @@ comments:
 ---
 
 ```{python}
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
+from subprocess import Popen, PIPE
+
+# matplotlib 中文乱码问题
+_p = Popen("fc-list :lang=zh", shell=True, stdout=PIPE, encoding="utf-8")
+zhs = _p.communicate()[0]
+zhs = [zh for zh in zhs.split("\n") if zh != ""]
+zhsfn = [zh.split(":")[0] for zh in zhs]
+
+fm = mpl.font_manager.FontManager()
+ff = plt.rcParams["font.family"][0]
+intersection = [t.name for t in fm.ttflist if t.fname in zhsfn] 
+
+plt.rcParams[f'font.{ff}'] = intersection + plt.rcParams[f'font.{ff}'] 
+
+# 解决负号为方块
+plt.rcParams['axes.unicode_minus'] = False 
 
 plt.style.use('ggplot')
-plt.rcParams['axes.unicode_minus'] = False # 解决负号为方块
-plt.rcParams[f'font.{plt.rcParams["font.family"][0]}'] = ['Source Han Sans CN', 'Sarasa Mono Slab SC', 'Songti SC']
+```
 
+```{python}
+import pandas as pd
+import numpy as np
+```
+
+```{python}
 # 已经出了成绩的最新年份
 scoredyear = '2022'
 ```
