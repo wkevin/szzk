@@ -44,6 +44,8 @@ plt.style.use('ggplot')
 
 
 ```{python}
+#| echo: true
+#| output: true
 print(fm.ttflist)
 print(zhsfn)
 print(intersection)
