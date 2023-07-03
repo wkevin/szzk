@@ -42,6 +42,14 @@ plt.rcParams['axes.unicode_minus'] = False
 plt.style.use('ggplot')
 ```
 
+
+```{python}
+print(fm.ttflist)
+print(zhsfn)
+print(intersection)
+```
+
+
 ```{python}
 import pandas as pd
 import numpy as np
