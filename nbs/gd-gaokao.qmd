@@ -13,29 +13,6 @@ comments:
     repo: wkevin/bitter-data
 ---
 
-```{python}
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from subprocess import Popen, PIPE
-
-# matplotlib 中文乱码问题
-_p = Popen("fc-list :lang=zh", shell=True, stdout=PIPE, encoding="utf-8")
-zhs = _p.communicate()[0]
-zhs = [zh for zh in zhs.split("\n") if zh != ""]
-zhsfn = [zh.split(":")[0] for zh in zhs]
-
-fm = mpl.font_manager.FontManager()
-ff = plt.rcParams["font.family"][0]
-intersection = [t.name for t in fm.ttflist if t.fname in zhsfn] 
-
-plt.rcParams[f'font.{ff}'] = intersection + plt.rcParams[f'font.{ff}'] 
-
-# 解决负号为方块
-plt.rcParams['axes.unicode_minus'] = False 
-
-plt.style.use('ggplot')
-```
-
 数据源自：
 
 - 广东省教育考试院
@@ -79,32 +56,45 @@ index=['本科','专科'])
 dfc
 ```
 
+```{python}
+from pyecharts import options as opts
+from pyecharts.charts import Bar
+from pyecharts.globals import ThemeType
+```
 
 ```{python}
 #| output: true
+
 dft = dfc.T
-newidx = dft.index.to_list()
-newidx.append('合计')
-dfs = dft.sum()
-dft.loc[len(dft.index)] = dfs
-dft.set_index(pd.Series(newidx))
+( # 加 () 才能链式调用放在行首，否则需要 ).add...
+Bar(init_opts=opts.InitOpts(width='100%'))
+.add_xaxis(dft.index.to_list())
+.add_yaxis("本科", dft['本科'].to_list())
+.add_yaxis("专科", dft['专科'].to_list())
+.set_global_opts(
+  title_opts=opts.TitleOpts(
+    title="2023 广东高考人数", 
+    subtitle="https://wkevin.github.io/bitter-data/"),
+  xaxis_opts=opts.AxisOpts(
+    axislabel_opts=opts.LabelOpts(rotate=25)),
+  yaxis_opts=opts.AxisOpts(
+    axislabel_opts=opts.LabelOpts(formatter="{value}")),
+  toolbox_opts=opts.ToolboxOpts(),
+  datazoom_opts=opts.DataZoomOpts(
+    orient="vertical",
+    range_start = 0,
+    range_end = 100),)
+.set_series_opts(
+  label_opts=opts.LabelOpts(
+    position='top',
+    rotate=90,
+    horizontal_align='left',
+    vertical_align='center'
+  ))
+.render_notebook()
+)
 ```
 
-
-```{python}
-#| output: true
-#| fig-align: center
-
-fig = plt.figure(figsize=(8,6), dpi=400)
-ax = fig.add_subplot()
-ax.set_title("2023 广东高考人数")
-ax.text(-2, -100000, 'https://wkevin.github.io/bitter-data/')
-
-# ax.set_ylabel("广东高考人数")
-# ax.bar(df['普通类(历史)'])
-dfc.T.plot.bar(rot=40, ax=ax, color=['lightcoral','springgreen'])
-plt.show()
-```
 
 ### 分数段人数
 
@@ -115,6 +105,8 @@ plt.show()
 
 ```{python}
 def group_data(df, group_num=10):
+  """按 10 分一个分数段进行重组
+  """
   dffa = pd.DataFrame(columns=['分数段','本科-人数','专科-人数'])
   dffl = pd.DataFrame(columns=['分数段','本科-人数','专科-人数'])
 
@@ -131,33 +123,45 @@ def group_data(df, group_num=10):
     except Exception as e:
       print(f'{e},{_dfi}')
   return dffa.reset_index(drop=True)
-
-
-color1 = '#F7A072'
-color2 = '#2486b9'
-def group_plot(df, title):
-  fig = plt.figure(figsize=(6,12), dpi=400)
-  ax = fig.add_subplot()
-  ax.set_title(title)
-  ax.text(-2000, -3, 'https://wkevin.github.io/bitter-data/', fontsize=6)
-
-  _len = len(df.values)
-  for i in range(_len):
-      ax.text(df.loc[i]['本科-人数']+100,i-0.4,df.loc[i]['本科-人数'],fontsize=4,color=color1)
-      ax.text(df.loc[i]['专科-人数']+100,i+0.1,df.loc[i]['专科-人数'],fontsize=4,color=color2)
-
-  df.set_index("分数段", inplace=True)
-  df.plot.barh(ax=ax, color=[color1,color2])
-  plt.show()
 ```
 
+
+```{python}
+def group_bar(df, title):
+  """对分数段数据生成 Bar，用户可以 render_notebook()
+
+  放在本函数里面显示不了 —— why?
+  """
+  return (Bar(init_opts=opts.InitOpts(width='100%',height='1200px'))
+  .add_xaxis(df['分数段'].to_list())
+  .add_yaxis('本科-人数', df['本科-人数'].to_list())
+  .add_yaxis('专科-人数', df['专科-人数'].to_list())
+  .reversal_axis()
+  .set_series_opts(
+    label_opts=opts.LabelOpts(
+      position="right",
+      font_size=8))
+  .set_global_opts(
+    title_opts=opts.TitleOpts(
+      title=title,
+      title_link="https://wkevin.github.io/bitter-data",
+      subtitle="https://wkevin.github.io/bitter-data",
+      subtitle_link="https://wkevin.github.io/bitter-data",
+      ),
+    xaxis_opts=opts.AxisOpts(name="招生人数"),
+    yaxis_opts=opts.AxisOpts(name="分数段",
+      name_location='center',
+      name_gap=60),  
+    )
+  )
+```
 
 ```{python}
 #| output: true
 #| fig-align: center
 
 _df = group_data(pd.read_csv(f'./gd-gaokao/2023-history.csv', decimal=',', index_col=0))
-group_plot(_df, title='2023 广东高考分数段人数（历史）')
+group_bar(_df, title='2023 广东高考分数段人数（历史）').render_notebook()
 ```
 
 
@@ -166,7 +170,7 @@ group_plot(_df, title='2023 广东高考分数段人数（历史）')
 #| fig-align: center
 
 _df = group_data(pd.read_csv(f'./gd-gaokao/2023-phy.csv', decimal=',', index_col=0))
-group_plot(_df, title='2023 广东高考分数段人数（物理）')
+group_bar(_df, title='2023 广东高考分数段人数（物理）').render_notebook()
 ```
 
 历史类更接近正态分布，物理类高分更密集一些、更卷一些。
@@ -186,7 +190,7 @@ group_plot(_df, title='2023 广东高考分数段人数（物理）')
 #| fig-align: center
 
 _df = group_data(pd.read_csv(f'./gd-gaokao/2022-history.csv', decimal=',', index_col=0))
-group_plot(_df, title='2022 广东高考分数段人数（历史）')
+group_bar(_df, title='2022 广东高考分数段人数（历史）').render_notebook()
 ```
 
 
@@ -195,5 +199,5 @@ group_plot(_df, title='2022 广东高考分数段人数（历史）')
 #| fig-align: center
 
 _df = group_data(pd.read_csv(f'./gd-gaokao/2022-phy.csv', decimal=',', index_col=0))
-group_plot(_df, title='2022 广东高考分数段人数（物理）')
+group_bar(_df, title='2022 广东高考分数段人数（物理）').render_notebook()
 ```
