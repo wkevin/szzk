@@ -20,39 +20,8 @@ comments:
 ---
 
 ```{python}
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from subprocess import Popen, PIPE
-
-# matplotlib 中文乱码问题
-_p = Popen("fc-list :lang=zh", shell=True, stdout=PIPE, encoding="utf-8")
-zhs = _p.communicate()[0]
-zhs = [zh for zh in zhs.split("\n") if zh != ""]
-zhsfn = [zh.split(":")[0] for zh in zhs]
-
-fm = mpl.font_manager.FontManager()
-ff = plt.rcParams["font.family"][0]
-intersection = [t.name for t in fm.ttflist if t.fname in zhsfn] 
-
-plt.rcParams[f'font.{ff}'] = intersection + plt.rcParams[f'font.{ff}'] 
-
-# 解决负号为方块
-plt.rcParams['axes.unicode_minus'] = False 
-
-plt.style.use('ggplot')
-```
-
-
-```{python}
-#| echo: true
-#| output: true
-print(fm.ttflist)
-print(zhsfn)
-print(intersection)
-```
-
-
-```{python}
+import pyecharts.options as opts
+from pyecharts.charts import Line,Grid
 import pandas as pd
 import numpy as np
 ```
@@ -94,36 +63,88 @@ dfsort.set_index(['名称'], inplace=True)
 (dfsort)
 ```
 
+
 ```{python}
 #| output: true
 #| fig-align: center
-fig = plt.figure(figsize=(8,30), dpi=400)
-ax = fig.add_subplot()
-ax.set_title("深圳高中排名演变图")
-ax.invert_yaxis()
-ax.yaxis.set_ticks_position('right')
-ax.xaxis.set_ticks_position('top')
 
-# ax.plot(['[2019]','[2020]','[2021]','[2022]'], dft, marker='o')
+l = (Line(init_opts=opts.InitOpts(width='100%'))
+  .add_xaxis(dfsort.columns.to_list() )
+  .set_global_opts(
+    title_opts=opts.TitleOpts(
+      title="深圳高中排名演变图",
+      title_link="https://wkevin.github.io/bitter-data",
+      subtitle="https://wkevin.github.io/bitter-data",
+      subtitle_link="https://wkevin.github.io/bitter-data"),
+    tooltip_opts=opts.TooltipOpts(trigger="axis"),
+    xaxis_opts=opts.AxisOpts(
+      type_="category", # 离散值
+      position='top',
+      boundary_gap=False),
+    yaxis_opts=opts.AxisOpts(
+      # is_show=False, 
+      is_inverse=True,
+      min_=1,
+      max_interval=10,
+      boundary_gap=False),
+    legend_opts=opts.LegendOpts(
+      is_show=False
+    ),
+  )
+)
 
-idx = 0
 for name, row in dfsort.iterrows():
-  idx += 1
-  ax.plot(years, row, marker='o')
-  # ax.text('[2022]',idx,name)
-  ax.annotate(name.replace('（一）',''), xy=(scoredyear, idx), xytext=(3.3,idx),verticalalignment='center')
+  l.add_yaxis(
+    series_name = name.replace('（一）',''),
+    y_axis = row.to_list(),
+    is_symbol_show=True,
+    symbol = 'circle',
+    symbol_size = 8,
+    label_opts=opts.LabelOpts(
+      is_show=False,
+      # formatter= '{a}'
+    )
+  )
+  # 添加校名
+  row[:-1] = None # 只保留最后一年的数值
+  l.add_yaxis(
+    series_name = name.replace('（一）',''),
+    y_axis = row,
+    is_symbol_show=True,
+    symbol = 'circle',
+    symbol_size = 8,
+    label_opts=opts.LabelOpts(
+      # is_show=False,
+      formatter= '{a}',
+      position= 'right'
+    )
+  )
 
-t = ax.text('2019', idx+3, 'https://wkevin.github.io/bitter-data/')
+
+grid = Grid(
+    init_opts=opts.InitOpts(
+        width="100%",
+        height='1400px',
+    ))
+
+grid.add(
+    l,
+    opts.GridOpts(
+      pos_top=80,
+      pos_right='38.2%',
+    ),
+    is_control_axis_index=True
+)
+grid.render_notebook()
+
 ```
 
 
 ## 招生人数
 
-```{python}
-#| output: true
+当前 2023 年录取分尚未发布，所以以 2022 年录取分数排序，新学校排在末尾。
 
-print(f'以 {scoredyear} 年录取分数排序，新学校排在末尾。')
-```
+待 2023 年录取分发布后，更新为 2023 年分数排序。
 
 ```{python}
 # dfsum: 累积数据
@@ -194,8 +215,8 @@ grid = Grid(
 grid.add(
     bar,
     opts.GridOpts(
-        pos_left='320px',
-        pos_right='20px',
+        pos_left='38.2%',
+        # pos_right='20px',
     ),
     is_control_axis_index=True
 )
@@ -267,7 +288,6 @@ sunburst = Sunburst(init_opts=opts.InitOpts(width='100%',height='800px',renderer
         {},
         {"r0": "25%", "r": "100%", "label": {"align": "right"}},
     ],
-    label_opts=opts.LabelOpts(font_size=10),
 ).set_global_opts(
     title_opts=opts.TitleOpts(
         title="2023 AC 类招生人数累计图",

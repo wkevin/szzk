@@ -13,6 +13,8 @@ comments:
     repo: wkevin/bitter-data
 ---
 
+# 广东高考
+
 数据源自：
 
 - 广东省教育考试院
@@ -152,6 +154,9 @@ def group_bar(df, title):
     yaxis_opts=opts.AxisOpts(name="分数段",
       name_location='center',
       name_gap=60),  
+    legend_opts=opts.LegendOpts(
+      pos_right=30,
+      orient='vertical')
     )
   )
 ```
@@ -184,6 +189,7 @@ group_bar(_df, title='2023 广东高考分数段人数（物理）').render_note
 
 ### 分数段人数
 
+恭喜 2022 年 5 位文科状元，和 6 位理科状元。
 
 ```{python}
 #| output: true
