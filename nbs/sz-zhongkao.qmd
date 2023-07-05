@@ -21,34 +21,38 @@ comments:
 
 ```{python}
 import pyecharts.options as opts
-from pyecharts.charts import Line,Grid
+from pyecharts.charts import Line, Grid
 import pandas as pd
 import numpy as np
+
 ```
 
 ```{python}
 # 已经出了成绩的最新年份
-scoredyear = '2022'
+scoredyear = "2022"
+years = [f"{y}" for y in list(range(2019, int(scoredyear) + 1, 1))]
+years_score = [f"[{y}]" for y in years]
+print(years)
+print(years_score)
 ```
 
 
 ```{python}
 # 加载数据
-df = pd.read_csv(f'./sz-zhongkao/data.csv', decimal=',')
+df = pd.read_csv(f"./sz-zhongkao/data.csv", decimal=",")
 l = len(df)
 
 # 添加每年的排序
-years = [str(y) for y in list(range(2019,int(scoredyear) + 1,1))]
 for y in years:
-  _l = len(df[df[f'[{y}]'].notnull()])
-  df = df.sort_values(by=f'[{y}]',  ascending=False)
+    _l = len(df[df[f'[{y}]'].notnull()])
+    df = df.sort_values(by=f'[{y}]', ascending=False)
 
-  zs = np.zeros(l)
-  zs[:] = np.nan
-  for i in range(0,_l,1):
-    zs[i] = i+1
+    zs = np.zeros(l)
+    zs[:] = np.nan
+    for i in range(0, _l, 1):
+        zs[i] = i + 1
 
-  df.insert(len(df.columns),y,zs)
+    df.insert(len(df.columns), y, zs)
 (df)
 ```
 
@@ -57,83 +61,84 @@ for y in years:
 ```{python}
 # 筛选当前最新出了成绩的学校，当年没出成绩的新学校不参与排名
 
-dfsort = df[df[scoredyear].notnull()][years + ['名称'] ] 
-dfsort.set_index(['名称'], inplace=True)
+dfsort = df[df[scoredyear].notnull()][years + ["名称"]]
+dfsort.set_index(["名称"], inplace=True)
 # dfsort = dfsort.sort_values(by='2022', ascending=True)
 (dfsort)
 ```
 
 
 ```{python}
-#| output: true
-#| fig-align: center
+# | output: true
+# | fig-align: center
 
-l = (Line(init_opts=opts.InitOpts(width='100%'))
-  .add_xaxis(dfsort.columns.to_list() )
-  .set_global_opts(
-    title_opts=opts.TitleOpts(
-      title="深圳高中排名演变图",
-      title_link="https://wkevin.github.io/bitter-data",
-      subtitle="https://wkevin.github.io/bitter-data",
-      subtitle_link="https://wkevin.github.io/bitter-data"),
-    tooltip_opts=opts.TooltipOpts(trigger="axis"),
-    xaxis_opts=opts.AxisOpts(
-      type_="category", # 离散值
-      position='top',
-      boundary_gap=False),
-    yaxis_opts=opts.AxisOpts(
-      # is_show=False, 
-      is_inverse=True,
-      min_=1,
-      max_interval=10,
-      boundary_gap=False),
-    legend_opts=opts.LegendOpts(
-      is_show=False
-    ),
-  )
+l = (
+    Line(init_opts=opts.InitOpts(width="100%"))
+    .add_xaxis(dfsort.columns.to_list())
+    .set_global_opts(
+        title_opts=opts.TitleOpts(
+            title="深圳高中排名演变图",
+            title_link="https://wkevin.github.io/bitter-data",
+            subtitle="https://wkevin.github.io/bitter-data",
+            subtitle_link="https://wkevin.github.io/bitter-data",
+        ),
+        xaxis_opts=opts.AxisOpts(
+            type_="category", position="top", boundary_gap=False  # 离散值
+        ),
+        yaxis_opts=opts.AxisOpts(
+            # is_show=False,
+            is_inverse=True,
+            min_=1,
+            max_=len(dfsort.index),
+            max_interval=10,
+            boundary_gap=False,
+        ),
+        legend_opts=opts.LegendOpts(is_show=False),
+    )
 )
 
 for name, row in dfsort.iterrows():
-  l.add_yaxis(
-    series_name = name.replace('（一）',''),
-    y_axis = row.to_list(),
-    is_symbol_show=True,
-    symbol = 'circle',
-    symbol_size = 8,
-    label_opts=opts.LabelOpts(
-      is_show=False,
-      # formatter= '{a}'
+    l.add_yaxis(
+        series_name=name.replace("（一）", ""),
+        y_axis=row.to_list(),
+        is_symbol_show=True,
+        symbol="circle",
+        symbol_size=8,
+        label_opts=opts.LabelOpts(
+            is_show=False,
+            # formatter= '{a}'
+        ),
     )
-  )
-  # 添加校名
-  row[:-1] = None # 只保留最后一年的数值
-  l.add_yaxis(
-    series_name = name.replace('（一）',''),
-    y_axis = row,
-    is_symbol_show=True,
-    symbol = 'circle',
-    symbol_size = 8,
-    label_opts=opts.LabelOpts(
-      # is_show=False,
-      formatter= '{a}',
-      position= 'right'
+    # 添加校名
+    row[:-1] = None  # 只保留最后一年的数值，其他列置 non
+    l.add_yaxis(
+        series_name=name.replace("（一）", ""),
+        y_axis=row,
+        is_symbol_show=True,
+        symbol="circle",
+        symbol_size=8,
+        label_opts=opts.LabelOpts(
+            # is_show=False,
+            formatter="{a}", # 用 series_name 作为 label
+            position="right",
+        ),
     )
-  )
 
 
 grid = Grid(
     init_opts=opts.InitOpts(
         width="100%",
-        height='1400px',
-    ))
+        height="1400px",
+    )
+)
 
 grid.add(
     l,
     opts.GridOpts(
-      pos_top=80,
-      pos_right='38.2%',
+        pos_top=80,
+        pos_right="38.2%",
     ),
-    is_control_axis_index=True
+    is_control_axis_index=True,
 )
 grid.render_notebook()
 
@@ -149,10 +154,10 @@ grid.render_notebook()
 ```{python}
 # dfsum: 累积数据
 # 全部学校参与计算招生人数
-dfsum = df.sort_values(by=f'[{scoredyear}]',  ascending=False) 
-dfsum = dfsum[['名称', '招生人数']]
-dfsum['名称'] = dfsum['名称'].str.replace("（一）","")
-dfsum['累计'] = dfsum['招生人数'].cumsum(axis=0)
+dfsum = df.sort_values(by=f"[{scoredyear}]", ascending=False)
+dfsum = dfsum[["名称", "招生人数"]]
+dfsum["名称"] = dfsum["名称"].str.replace("（一）", "")
+dfsum["累计"] = dfsum["招生人数"].cumsum(axis=0)
 
 dfsum
 ```
@@ -161,64 +166,66 @@ dfsum
 ```{python}
 from pyecharts import types
 from pyecharts import options as opts
-from pyecharts.charts import Bar,Grid,Sunburst
+from pyecharts.charts import Bar, Grid, Sunburst
+
 ```
 
 ### 2023 AC 类招生人数
 
 ```{python}
-#| output: true
+# | output: true
 
 # 以 2022 录取分做升序 —— pyecharts 绘图是逆序的
 # df.iloc[::-1] 可以实现逆序
 
-bar = Bar(init_opts=opts.InitOpts()
-).add_dataset(
-    source= [dfsum.columns.values.tolist()] + dfsum.iloc[::-1].values.tolist()
-).add_yaxis(
-    series_name="",
-    y_axis=[],
-    label_opts=opts.LabelOpts(
-        is_show=True,
-        font_weight='bold',
-        position='insideRight'
-    ),
-).set_global_opts(
-    title_opts=opts.TitleOpts(
-        title="2023 AC 类招生人数对比图",
-        title_link="https://wkevin.github.io/bitter-data",
-        subtitle="https://wkevin.github.io/bitter-data",
-        subtitle_link="https://wkevin.github.io/bitter-data",
-        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12)
-    ),
-    legend_opts=opts.LegendOpts(
-      is_show=False
-    ),
-    xaxis_opts=opts.AxisOpts(name="招生人数"),
-    yaxis_opts=opts.AxisOpts(type_="category"),
-    visualmap_opts=opts.VisualMapOpts(
-        orient="horizontal",
-        pos_left="center",
-        min_=80,
-        max_=1700,
-        dimension=1,
-        range_color=["#D7DA8B", "#E15457"],
-    ),
+bar = (
+    Bar(init_opts=opts.InitOpts())
+    .add_dataset(
+        source=[dfsum.columns.values.tolist()] + dfsum.iloc[::-1].values.tolist()
+    )
+    .add_yaxis(
+        series_name="",
+        y_axis=[],
+        label_opts=opts.LabelOpts(
+            is_show=True, font_weight="bold", position="insideRight"
+        ),
+    )
+    .set_global_opts(
+        title_opts=opts.TitleOpts(
+            title="2023 AC 类招生人数对比图",
+            title_link="https://wkevin.github.io/bitter-data",
+            subtitle="https://wkevin.github.io/bitter-data",
+            subtitle_link="https://wkevin.github.io/bitter-data",
+            subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
+        ),
+        legend_opts=opts.LegendOpts(is_show=False),
+        xaxis_opts=opts.AxisOpts(name="招生人数"),
+        yaxis_opts=opts.AxisOpts(type_="category"),
+        visualmap_opts=opts.VisualMapOpts(
+            orient="horizontal",
+            pos_left="center",
+            min_=80,
+            max_=1700,
+            dimension=1,
+            range_color=["#D7DA8B", "#E15457"],
+        ),
+    )
 )
 
 grid = Grid(
     init_opts=opts.InitOpts(
         width="100%",
         height="1600px",
-    ))
+    )
+)
 
 grid.add(
     bar,
     opts.GridOpts(
-        pos_left='38.2%',
+        pos_left="38.2%",
         # pos_right='20px',
     ),
-    is_control_axis_index=True
+    is_control_axis_index=True,
 )
 grid.render_notebook()
 ```
@@ -232,29 +239,23 @@ data = []
 idx = 0
 sum = 0
 for name, row in dfsum.iterrows():
-  sum += row['招生人数']
-  idx += 1
-  data.append({
-    "name": str(idx) +'_'+ row['名称'],
-    "value": row['招生人数']
-  })
+    sum += row["招生人数"]
+    idx += 1
+    data.append({"name": str(idx) + "_" + row["名称"], "value": row["招生人数"]})
 
 
-data.append({
-  "name": "缺口",
-  "value": total - sum
-})
+data.append({"name": "缺口", "value": total - sum})
 data
 ```
 
 ```{python}
-data_grade =[
-  {"name": "A+", "value": total * 0.05 },
-  {"name": "A", "value": total*0.2},
-  {"name": "B+", "value": total*0.25},
-  {"name": "B", "value": total*0.25},
-  {"name": "C+", "value": total*0.2},
-  {"name": "C", "value": total*0.05},
+data_grade = [
+    {"name": "A+", "value": total * 0.05},
+    {"name": "A", "value": total * 0.2},
+    {"name": "B+", "value": total * 0.25},
+    {"name": "B", "value": total * 0.25},
+    {"name": "C+", "value": total * 0.2},
+    {"name": "C", "value": total * 0.05},
 ]
 data_grade
 ```
@@ -264,43 +265,44 @@ data_grade
 2023 年 12+ 万报名，按 AC:D = 1:1 预估，AC 类考生约 6 万。
 
 ```{python}
-#| output: true
+# | output: true
 
-sunburst = Sunburst(init_opts=opts.InitOpts(width='100%',height='800px',renderer='svg')
-).add(
-    "",
-    data_pair=data_grade,
-    highlight_policy="ancestor",
-    radius=[0, "95%"],
-    sort_=types.JsCode("null"),
-    levels=[
-        {},
-        {"r0": "15%", "r": "23%", "label": {"align": "right"}},
-    ],
-    label_opts=opts.LabelOpts(font_size=12,font_weight='bold'),
-).add(
-    "",
-    data_pair=data,
-    highlight_policy="ancestor",
-    radius=[0, "95%"],
-    sort_=types.JsCode("null"),
-    levels=[
-        {},
-        {"r0": "25%", "r": "100%", "label": {"align": "right"}},
-    ],
-).set_global_opts(
-    title_opts=opts.TitleOpts(
-        title="2023 AC 类招生人数累计图",
-        subtitle="https://wkevin.github.io/bitter-data",
-        subtitle_link="https://wkevin.github.io/bitter-data",
-        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12)
-    ),
-    legend_opts=opts.LegendOpts(
-      is_show=False
-    ),
+(
+    Sunburst(init_opts=opts.InitOpts(width="100%", height="800px", renderer="svg"))
+    .add(
+        "",
+        data_pair=data_grade,
+        highlight_policy="ancestor",
+        radius=[0, "95%"],
+        sort_=types.JsCode("null"),
+        levels=[
+            {},
+            {"r0": "15%", "r": "23%", "label": {"align": "right"}},
+        ],
+        label_opts=opts.LabelOpts(font_size=12, font_weight="bold"),
+    )
+    .add(
+        "",
+        data_pair=data,
+        highlight_policy="ancestor",
+        radius=[0, "95%"],
+        sort_=types.JsCode("null"),
+        levels=[
+            {},
+            {"r0": "25%", "r": "100%", "label": {"align": "right"}},
+        ],
+    )
+    .set_global_opts(
+        title_opts=opts.TitleOpts(
+            title="2023 AC 类招生人数累计图",
+            subtitle="https://wkevin.github.io/bitter-data",
+            subtitle_link="https://wkevin.github.io/bitter-data",
+            subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
+        ),
+        legend_opts=opts.LegendOpts(is_show=False),
+    )
+    .render_notebook()
 )
-
-sunburst.render_notebook()
 ```
 
 D 类就不作图了，看着太扎心了！

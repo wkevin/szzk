@@ -81,11 +81,22 @@ Bar(init_opts=opts.InitOpts(width='100%'))
     axislabel_opts=opts.LabelOpts(rotate=25)),
   yaxis_opts=opts.AxisOpts(
     axislabel_opts=opts.LabelOpts(formatter="{value}")),
-  toolbox_opts=opts.ToolboxOpts(),
-  datazoom_opts=opts.DataZoomOpts(
-    orient="vertical",
-    range_start = 0,
-    range_end = 100),)
+  toolbox_opts=opts.ToolboxOpts(
+    feature=opts.ToolBoxFeatureOpts(
+      # save_as_image = None, 仅保留保存图片按钮
+      restore = None,
+      data_view = None,
+      data_zoom = None,
+      magic_type = None,
+      # brush = opts.BrushOpts(),
+    )
+  ),
+  # datazoom_opts=opts.DataZoomOpts(
+  #   type_='inside',
+  #   orient="vertical",
+  #   range_start = 0,
+  #   range_end = 100),
+  )
 .set_series_opts(
   label_opts=opts.LabelOpts(
     position='top',
@@ -134,7 +145,7 @@ def group_bar(df, title):
 
   放在本函数里面显示不了 —— why?
   """
-  return (Bar(init_opts=opts.InitOpts(width='100%',height='1200px'))
+  return (Bar(init_opts=opts.InitOpts(width='100%',height='600px'))
   .add_xaxis(df['分数段'].to_list())
   .add_yaxis('本科-人数', df['本科-人数'].to_list())
   .add_yaxis('专科-人数', df['专科-人数'].to_list())
@@ -151,9 +162,14 @@ def group_bar(df, title):
       subtitle_link="https://wkevin.github.io/bitter-data",
       ),
     xaxis_opts=opts.AxisOpts(name="招生人数"),
-    yaxis_opts=opts.AxisOpts(name="分数段",
-      name_location='center',
-      name_gap=60),  
+    yaxis_opts=opts.AxisOpts(name="",
+      type_='category',
+      name_location='start',
+      axislabel_opts=opts.LabelOpts(
+        interval=0,
+        font_size=8
+      )
+      ),  
     legend_opts=opts.LegendOpts(
       pos_right=30,
       orient='vertical')
