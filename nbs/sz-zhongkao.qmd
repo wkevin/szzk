@@ -44,8 +44,8 @@ l = len(df)
 
 # 添加每年的排序
 for y in years:
-    _l = len(df[df[f'[{y}]'].notnull()])
-    df = df.sort_values(by=f'[{y}]', ascending=False)
+    _l = len(df[df[f"[{y}]"].notnull()])
+    df = df.sort_values(by=f"[{y}]", ascending=False)
 
     zs = np.zeros(l)
     zs[:] = np.nan
@@ -61,9 +61,10 @@ for y in years:
 ```{python}
 # 筛选当前最新出了成绩的学校，当年没出成绩的新学校不参与排名
 from pyecharts.commons.utils import JsCode
+
 dfsort = df[df[scoredyear].notnull()][years + ["名称"]]
 for y in years:
-  dfsort["名称"] = dfsort["名称"] + ',' + df[f'[{y}]'].astype(str)
+    dfsort["名称"] = dfsort["名称"] + "," + df[f"[{y}]"].astype(str)
 dfsort.set_index(["名称"], inplace=True)
 # dfsort = dfsort.sort_values(by='2022', ascending=True)
 (dfsort)
@@ -96,7 +97,7 @@ l = (
             boundary_gap=False,
         ),
         tooltip_opts=opts.TooltipOpts(
-            trigger="item", # item-鼠标在item上触发，axis-轴上触发
+            trigger="item",  # item-鼠标在item上触发，axis-轴上触发
             # {a}：系列名。
             # {b}：数据名。
             # {c}：数据值。
@@ -109,6 +110,16 @@ l = (
                     return  ret;
                 }"""
             ),
+        ),
+        toolbox_opts=opts.ToolboxOpts(
+            feature=opts.ToolBoxFeatureOpts(
+                # save_as_image = None, 仅保留保存图片按钮
+                restore=None,
+                data_view=None,
+                data_zoom=None,
+                magic_type=None,
+                # brush = opts.BrushOpts(),
+            )
         ),
         legend_opts=opts.LegendOpts(is_show=False),
     )
@@ -129,15 +140,15 @@ for name, row in dfsort.iterrows():
     # 添加校名
     row[:-1] = None  # 只保留最后一年的数值，其他列置 non
     l.add_yaxis(
-        series_name=name.split(',')[0].replace("（一）", ""),
+        series_name=name.split(",")[0].replace("（一）", ""),
         y_axis=row,
-        z_level=0, # 放在上一个 y 值的底下
+        z_level=0,  # 放在上一个 y 值的底下
         is_symbol_show=True,
         symbol="circle",
         symbol_size=8,
         label_opts=opts.LabelOpts(
             # is_show=False,
-            formatter="{a}", # 用 series_name 作为 label
+            formatter="{a}",  # 用 series_name 作为 label
             position="right",
         ),
     )
@@ -316,6 +327,16 @@ data_grade
             subtitle="https://wkevin.github.io/bitter-data",
             subtitle_link="https://wkevin.github.io/bitter-data",
             subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
+        ),
+        toolbox_opts=opts.ToolboxOpts(
+            feature=opts.ToolBoxFeatureOpts(
+                # save_as_image = None, 仅保留保存图片按钮
+                restore=None,
+                data_view=None,
+                data_zoom=None,
+                magic_type=None,
+                # brush = opts.BrushOpts(),
+            )
         ),
         legend_opts=opts.LegendOpts(is_show=False),
     )
