@@ -60,8 +60,10 @@ for y in years:
 
 ```{python}
 # 筛选当前最新出了成绩的学校，当年没出成绩的新学校不参与排名
-
+from pyecharts.commons.utils import JsCode
 dfsort = df[df[scoredyear].notnull()][years + ["名称"]]
+for y in years:
+  dfsort["名称"] = dfsort["名称"] + ',' + df[f'[{y}]'].astype(str)
 dfsort.set_index(["名称"], inplace=True)
 # dfsort = dfsort.sort_values(by='2022', ascending=True)
 (dfsort)
@@ -93,6 +95,21 @@ l = (
             max_interval=10,
             boundary_gap=False,
         ),
+        tooltip_opts=opts.TooltipOpts(
+            trigger="item", # item-鼠标在item上触发，axis-轴上触发
+            # {a}：系列名。
+            # {b}：数据名。
+            # {c}：数据值。
+            # {@xxx}：数据中名为 'xxx' 的维度的值，如 {@product} 表示名为 'product'` 的维度的值。
+            # {@[n]}：数据中维度 n 的值，如{@[3]}` 表示维度 3 的值，从 0 开始计数。
+            formatter=JsCode(
+                """function (param) {
+                    ret = param.seriesName.split(',')[0] + '<br/>';
+                    ret += param.value + ',' + param.seriesName.split(',')[param.dataIndex+1].toString().slice(0,-2) ;
+                    return  ret;
+                }"""
+            ),
+        ),
         legend_opts=opts.LegendOpts(is_show=False),
     )
 )
@@ -100,20 +117,21 @@ l = (
 for name, row in dfsort.iterrows():
     l.add_yaxis(
         series_name=name.replace("（一）", ""),
-        y_axis=row.to_list(),
+        y_axis=row,
+        z_level=1,
         is_symbol_show=True,
         symbol="circle",
         symbol_size=8,
         label_opts=opts.LabelOpts(
             is_show=False,
-            # formatter= '{a}'
         ),
     )
     # 添加校名
     row[:-1] = None  # 只保留最后一年的数值，其他列置 non
     l.add_yaxis(
-        series_name=name.replace("（一）", ""),
+        series_name=name.split(',')[0].replace("（一）", ""),
         y_axis=row,
+        z_level=0, # 放在上一个 y 值的底下
         is_symbol_show=True,
         symbol="circle",
         symbol_size=8,
