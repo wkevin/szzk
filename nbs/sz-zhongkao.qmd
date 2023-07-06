@@ -24,7 +24,7 @@ import pyecharts.options as opts
 from pyecharts.charts import Line, Grid
 import pandas as pd
 import numpy as np
-
+from datetime import datetime as dt
 ```
 
 ```{python}
@@ -36,6 +36,28 @@ print(years)
 print(years_score)
 ```
 
+```{python}
+# 全局变量
+g_toolbox_opts=opts.ToolboxOpts(
+    feature=opts.ToolBoxFeatureOpts(
+        # save_as_image = None, 仅保留保存图片按钮
+        restore=None,
+        data_view=None,
+        data_zoom=None,
+        magic_type=None,
+        # brush = opts.BrushOpts(),
+    )
+),
+
+def get_title(titlestr:str=""):
+    return opts.TitleOpts(
+        title=titlestr,
+        title_link="https://wkevin.github.io/bitter-data",
+        subtitle="https://wkevin.github.io/bitter-data",
+        subtitle_link="https://wkevin.github.io/bitter-data",
+        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
+    )
+```
 
 ```{python}
 # 加载数据
@@ -79,12 +101,7 @@ l = (
     Line(init_opts=opts.InitOpts(width="100%"))
     .add_xaxis(dfsort.columns.to_list())
     .set_global_opts(
-        title_opts=opts.TitleOpts(
-            title="深圳高中排名演变图",
-            title_link="https://wkevin.github.io/bitter-data",
-            subtitle="https://wkevin.github.io/bitter-data",
-            subtitle_link="https://wkevin.github.io/bitter-data",
-        ),
+        title_opts=get_title("深圳高中排名演变图"),
         xaxis_opts=opts.AxisOpts(
             type_="category", position="top", boundary_gap=False  # 离散值
         ),
@@ -111,16 +128,7 @@ l = (
                 }"""
             ),
         ),
-        toolbox_opts=opts.ToolboxOpts(
-            feature=opts.ToolBoxFeatureOpts(
-                # save_as_image = None, 仅保留保存图片按钮
-                restore=None,
-                data_view=None,
-                data_zoom=None,
-                magic_type=None,
-                # brush = opts.BrushOpts(),
-            )
-        ),
+        toolbox_opts=g_toolbox_opts,
         legend_opts=opts.LegendOpts(is_show=False),
     )
 )
@@ -149,7 +157,7 @@ for name, row in dfsort.iterrows():
         label_opts=opts.LabelOpts(
             # is_show=False,
             formatter="{a}",  # 用 series_name 作为 label
-            position="right",
+            position="right"
         ),
     )
 
@@ -157,7 +165,9 @@ for name, row in dfsort.iterrows():
 grid = Grid(
     init_opts=opts.InitOpts(
         width="100%",
-        height="1400px",
+        height="1600px",
+        renderer='svg',
+        bg_color='white'
     )
 )
 
@@ -214,22 +224,15 @@ bar = (
     )
     .add_yaxis(
         series_name="",
-        y_axis=[],
-        label_opts=opts.LabelOpts(
-            is_show=True, font_weight="bold", position="insideRight"
-        ),
+        y_axis=[], # add_dataset() 中已给出，会自动选择第1、2列，此处可置空
+        label_opts=opts.LabelOpts(position="right"),
     )
     .set_global_opts(
-        title_opts=opts.TitleOpts(
-            title="2023 AC 类招生人数对比图",
-            title_link="https://wkevin.github.io/bitter-data",
-            subtitle="https://wkevin.github.io/bitter-data",
-            subtitle_link="https://wkevin.github.io/bitter-data",
-            subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
-        ),
+        title_opts=get_title("2023 AC 类招生人数对比图"),
         legend_opts=opts.LegendOpts(is_show=False),
-        xaxis_opts=opts.AxisOpts(name="招生人数"),
+        xaxis_opts=opts.AxisOpts(name=""),
         yaxis_opts=opts.AxisOpts(type_="category"),
+        toolbox_opts=g_toolbox_opts,
         visualmap_opts=opts.VisualMapOpts(
             orient="horizontal",
             pos_left="center",
@@ -245,13 +248,15 @@ grid = Grid(
     init_opts=opts.InitOpts(
         width="100%",
         height="1600px",
+        renderer='svg',
+        bg_color='white'
     )
 )
 
 grid.add(
     bar,
     opts.GridOpts(
-        pos_left="38.2%",
+        pos_left="50%",
         # pos_right='20px',
     ),
     is_control_axis_index=True,
@@ -297,7 +302,7 @@ data_grade
 # | output: true
 
 (
-    Sunburst(init_opts=opts.InitOpts(width="100%", height="800px", renderer="svg"))
+    Sunburst(init_opts=opts.InitOpts(width="100%",height="600px",renderer='svg',bg_color='white'))
     .add(
         "",
         data_pair=data_grade,
@@ -308,7 +313,7 @@ data_grade
             {},
             {"r0": "15%", "r": "23%", "label": {"align": "right"}},
         ],
-        label_opts=opts.LabelOpts(font_size=12, font_weight="bold"),
+        label_opts=opts.LabelOpts(font_size=10, font_weight="bold"),
     )
     .add(
         "",
@@ -320,24 +325,17 @@ data_grade
             {},
             {"r0": "25%", "r": "100%", "label": {"align": "right"}},
         ],
+        label_opts=opts.LabelOpts(
+            # formatter + rich = 可实现更丰富的自定义显示
+            formatter='{schoolname| {b}}',
+            rich={
+                "schoolname": {"fontSize":'0.5em'}
+            },
+        ),
     )
     .set_global_opts(
-        title_opts=opts.TitleOpts(
-            title="2023 AC 类招生人数累计图",
-            subtitle="https://wkevin.github.io/bitter-data",
-            subtitle_link="https://wkevin.github.io/bitter-data",
-            subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
-        ),
-        toolbox_opts=opts.ToolboxOpts(
-            feature=opts.ToolBoxFeatureOpts(
-                # save_as_image = None, 仅保留保存图片按钮
-                restore=None,
-                data_view=None,
-                data_zoom=None,
-                magic_type=None,
-                # brush = opts.BrushOpts(),
-            )
-        ),
+        title_opts=get_title("2023 AC 类招生人数累计图"),
+        toolbox_opts=g_toolbox_opts,        
         legend_opts=opts.LegendOpts(is_show=False),
     )
     .render_notebook()
