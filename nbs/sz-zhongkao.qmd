@@ -29,7 +29,7 @@ from datetime import datetime as dt
 
 ```{python}
 # 已经出了成绩的最新年份
-scoredyear = "2022"
+scoredyear = "2023"
 years = [f"{y}" for y in list(range(2019, int(scoredyear) + 1, 1))]
 years_score = [f"[{y}]" for y in years]
 print(years)
