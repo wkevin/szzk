@@ -45,7 +45,9 @@ print(f"data 中已出分年度的列名: {years_score}")
 # 全局变量
 g_toolbox_opts=opts.ToolboxOpts(
     feature=opts.ToolBoxFeatureOpts(
-        # save_as_image = None, 仅保留保存图片按钮
+        save_as_image = opts.ToolBoxFeatureSaveAsImageOpts(
+            background_color="white",
+            pixel_ratio = 5), 
         restore=None,
         data_view=None,
         data_zoom=None,
@@ -76,11 +78,17 @@ def get_title(titlestr:str=""):
 #   engine: 默认为 'c', 还可以 'python'
 df = pd.read_csv(f"./sz-zhongkao/data.csv", decimal=",", dtype={f"[{scoredyear}]": float})
 l = len(df)
-print(df)
-# 添加每年的排序，分数相同者，以代码为第二序
+
+# 添加每年的排序
+# 第一序：分数
+# 第二序：招生人数，招生人数多着靠前
+# 第三序：代码
 for y in years:
     _l = len(df[df[f"[{y}]"].notnull()])
-    df = df.sort_values(by=[f"[{y}]","代码_ac"], ascending=[False,True])
+    if f"招生人数_{y}_ac" in df.columns.tolist():
+        df = df.sort_values(by=[f"[{y}]", f"招生人数_{y}_ac", "代码_ac"], ascending=[False, False, True])
+    else:
+        df = df.sort_values(by=[f"[{y}]", "代码_ac"], ascending=[False, True])
 
     zs = np.zeros(l)
     zs[:] = np.nan
@@ -94,19 +102,22 @@ for y in years:
 
 ## 学校排名演变
 
-- 分数相同，以学校代码为第二序
-
 ```{python}
 # 演变图绘制到当前已出成绩的年份（scoredyear）
 
 dfsort = df[df[scoredyear].notnull()][years + ["名称"]]
+# 把所有年份的成绩添加到“名称”列中，后面添加 tooltip 时使用
 for y in years:
-    dfsort["名称"] = dfsort["名称"] + "," + df[f"[{y}]"].astype(str)
+    dfsort["名称"] += "," + df[f"[{y}]"].astype(str)
 dfsort.set_index(["名称"], inplace=True)
-# dfsort = dfsort.sort_values(by='2022', ascending=True)
 (dfsort)
 ```
 
+排序原则：
+
+1. 第一序：录取分数
+2. 第二序：招生人数，招生人数多着靠前
+3. 第三序：代码
 
 ```{python}
 # | output: true
@@ -182,7 +193,7 @@ grid = Grid(
     init_opts=opts.InitOpts(
         width="100%",
         height="1600px",
-        renderer='svg',
+        renderer='png', 
         bg_color='white'
     )
 )
@@ -282,7 +293,7 @@ def enroll_number_bar(year: str):
 
 ```{python}
 ####################
-#  等位图公共函数
+#  等位旭日图公共函数
 ####################
 
 # def enroll_number_sum(year: str, category: str = 'ac'):
@@ -355,7 +366,12 @@ def level_sunburst(year: str, category: str, total: int, ignore_zbs: bool):
     data.append({"name": "缺口", "value": total - sum - (df[f"指标生_{year}_{category}"].sum() if ignore_zbs else 0)})
 
     return (
-        Sunburst(init_opts=opts.InitOpts(width="100%",height="600px",renderer='svg',bg_color='white'))
+        Sunburst(init_opts=opts.InitOpts(
+            width="100%",
+            height="600px",
+            is_horizontal_center=True,
+            renderer='png',
+            bg_color='white'))
         .add(
             "",
             data_pair=data_grade,
@@ -382,12 +398,12 @@ def level_sunburst(year: str, category: str, total: int, ignore_zbs: bool):
                 # formatter + rich = 可实现更丰富的自定义显示
                 formatter='{schoolname| {b}}',
                 rich={
-                    "schoolname": {"fontSize":'0.5em'}
+                    "schoolname": {"fontSize":'9px'}
                 },
             ),
         )
         .set_global_opts(
-            title_opts=get_title(f"{year} {category} 类招生人数累计图({'去除指标生' if ignore_zbs else '全部'})"),
+            title_opts=get_title(f"{year} {category.upper()} 类招生人数累计图({'去除指标生' if ignore_zbs else '全部'})"),
             toolbox_opts=g_toolbox_opts,        
             legend_opts=opts.LegendOpts(is_show=False),
         )
