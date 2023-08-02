@@ -299,7 +299,7 @@ def number_table(year:str, total_ac:int, total_d:int):
     """绘制录取人数和比例的表格"""
     table = Table()
 
-    headers = ["类别", "总人数", "总录取人数/比例", "指标生/比例", "正录人数/比例"]
+    headers = ["类别", "总人数", "总录取/比例", "指标生/比例", "正录/比例"]
 
     total = total_ac + total_d
     all_ac = df[f"招生人数_{year}_ac"].sum()  
@@ -307,7 +307,6 @@ def number_table(year:str, total_ac:int, total_d:int):
     zbs_ac = df[f"指标生_{year}_ac"].sum()
     zbs_d = df[f"指标生_{year}_d"].sum()
 
-    print(zbs_ac)
     rows = [
         [
             "AC+D", 
@@ -431,6 +430,8 @@ number_table("2023", 57800, 68200).render_notebook()
 
 - 全部（不去除指标生）：可作为评估学校整体位置，或**填报指标生志愿参考**
 - 去除指标生：可**作为正录（第一批）报志愿参考**
+
+> 下图推荐在电脑上打开，手机上查看比较拥挤。
 
 ```{python}
 # | output: true
