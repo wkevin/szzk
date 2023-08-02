@@ -16,15 +16,20 @@ format:
 comments:
   giscus:
     repo: wkevin/bitter-data
-
 ---
 
 ```{python}
-import pyecharts.options as opts
-from pyecharts.charts import Line, Grid
-import pandas as pd
-import numpy as np
 from datetime import datetime as dt
+
+import numpy as np
+import pandas as pd
+
+from pyecharts import types
+from pyecharts import options as opts
+from pyecharts.charts import Line, Grid, Bar, Sunburst
+from pyecharts.components import Table
+from pyecharts.commons.utils import JsCode
+
 ```
 
 ```{python}
@@ -32,8 +37,8 @@ from datetime import datetime as dt
 scoredyear = "2023"
 years = [f"{y}" for y in list(range(2019, int(scoredyear) + 1, 1))]
 years_score = [f"[{y}]" for y in years]
-print(years)
-print(years_score)
+print(f"已出分年度: {years}")
+print(f"data 中已出分年度的列名: {years_score}")
 ```
 
 ```{python}
@@ -61,13 +66,21 @@ def get_title(titlestr:str=""):
 
 ```{python}
 # 加载数据
-df = pd.read_csv(f"./sz-zhongkao/data.csv", decimal=",")
+# read_csv(dtype, engine)
+#   pandas 首先尝试某列是否可数值化（numeric）
+#   不可数值化：视为 str
+#   可以数值化 & dtype 没有指定为 'str': 按 int、float 顺序尝试解析
+#       遇到列中有 NaN（pandas 中的一种特殊 float 值）, 此列按 float 解析；
+#       遇到列中没有 NaN，则按 int、float 顺序尝试解析；
+#       所以 scoredyear 最新年份的录取分中没有 Nan，导致解析为 int，与其他的 float 不一致，此处统一为 float
+#   engine: 默认为 'c', 还可以 'python'
+df = pd.read_csv(f"./sz-zhongkao/data.csv", decimal=",", dtype={f"[{scoredyear}]": float})
 l = len(df)
-
-# 添加每年的排序
+print(df)
+# 添加每年的排序，分数相同者，以代码为第二序
 for y in years:
     _l = len(df[df[f"[{y}]"].notnull()])
-    df = df.sort_values(by=f"[{y}]", ascending=False)
+    df = df.sort_values(by=[f"[{y}]","代码_ac"], ascending=[False,True])
 
     zs = np.zeros(l)
     zs[:] = np.nan
@@ -78,11 +91,13 @@ for y in years:
 (df)
 ```
 
-## 学校排名
+
+## 学校排名演变
+
+- 分数相同，以学校代码为第二序
 
 ```{python}
-# 筛选当前最新出了成绩的学校，当年没出成绩的新学校不参与排名
-from pyecharts.commons.utils import JsCode
+# 演变图绘制到当前已出成绩的年份（scoredyear）
 
 dfsort = df[df[scoredyear].notnull()][years + ["名称"]]
 for y in years:
@@ -123,10 +138,11 @@ l = (
             formatter=JsCode(
                 """function (param) {
                     ret = param.seriesName.split(',')[0] + '<br/>';
-                    ret += param.value + ',' + param.seriesName.split(',')[param.dataIndex+1].toString().slice(0,-2) ;
+                    ret += param.value + ',' + param.seriesName.split(',')[param.dataIndex+1].toString().slice(0,-2)  ;
                     return  ret;
                 }"""
             ),
+            # slice(0,-2): 去掉 float 小数点后的内容（.0）
         ),
         toolbox_opts=g_toolbox_opts,
         legend_opts=opts.LegendOpts(is_show=False),
@@ -135,7 +151,7 @@ l = (
 
 for name, row in dfsort.iterrows():
     l.add_yaxis(
-        series_name=name.replace("（一）", ""),
+        series_name=name,
         y_axis=row,
         z_level=1,
         is_symbol_show=True,
@@ -148,7 +164,7 @@ for name, row in dfsort.iterrows():
     # 添加校名
     row[:-1] = None  # 只保留最后一年的数值，其他列置 non
     l.add_yaxis(
-        series_name=name.split(",")[0].replace("（一）", ""),
+        series_name=name.split(",")[0],
         y_axis=row,
         z_level=0,  # 放在上一个 y 值的底下
         is_symbol_show=True,
@@ -179,168 +195,269 @@ grid.add(
     ),
     is_control_axis_index=True,
 )
+
 grid.render_notebook()
-
-```
-
-
-## 招生人数
-
-当前 2023 年录取分尚未发布，所以以 2022 年录取分数排序，新学校排在末尾。
-
-待 2023 年录取分发布后，更新为 2023 年分数排序。
-
-```{python}
-# dfsum: 累积数据
-# 全部学校参与计算招生人数
-dfsum = df.sort_values(by=f"[{scoredyear}]", ascending=False)
-dfsum = dfsum[["名称", "招生人数"]]
-dfsum["名称"] = dfsum["名称"].str.replace("（一）", "")
-dfsum["累计"] = dfsum["招生人数"].cumsum(axis=0)
-
-dfsum
 ```
 
 
 ```{python}
-from pyecharts import types
-from pyecharts import options as opts
-from pyecharts.charts import Bar, Grid, Sunburst
+####################
+#  公共函数
+####################
 
+def add_new_tag(year: str):
+    # 识别是否为新校，添加 new 标签
+    _df = df.sort_values(by=f"[{year}]", ascending=False)
+    _df["名称"] += np.where(_df[f"[{str(int(year)-1)}]"].isna(), "(new)","")
+    return _df
 ```
 
-### 2023 AC 类招生人数
+```{python}
+####################
+#  招生人数公共函数
+####################
+def enroll_number_bar(year: str):
+    _col_name = f"招生人数_{year}"
+    _df = add_new_tag(year)
+    _df[f"{_col_name}"] = _df[f"{_col_name}_ac"] + _df[f"{_col_name}_d"]
+    _df = _df[["名称", f"{_col_name}_ac", f"{_col_name}_d", _col_name]]
+
+    bar = (
+        Bar(init_opts=opts.InitOpts())
+        # add_dataset() 中给出数据后，add_yaxis 会自动依次选择第 2、3...列
+        # pyecharts 绘图是逆序的, df.iloc[::-1] 可以实现逆序
+        .add_dataset(
+            source=[_df.columns.values.tolist()] + _df.iloc[::-1].values.tolist()
+        )
+        .add_yaxis(
+            series_name=f"{_col_name}_ac",
+            y_axis=[], # 自动选择第 2 列
+            label_opts=opts.LabelOpts(position="insideRight"),
+            stack="stack1"
+        )
+        .add_yaxis(
+            series_name=f"{_col_name}_d",
+            y_axis=[], # 自动选择第 3 列
+            label_opts=opts.LabelOpts(position="insideLeft"),
+            stack="stack1"
+        )
+        .set_global_opts(
+            title_opts=get_title(f"{year} 招生人数对比图"),
+            legend_opts=opts.LegendOpts(is_show=True, pos_bottom=10),
+            xaxis_opts=opts.AxisOpts(name=""),
+            yaxis_opts=opts.AxisOpts(type_="category"),
+            toolbox_opts=g_toolbox_opts,
+            # visualmap_opts=opts.VisualMapOpts(
+            #     orient="horizontal",
+            #     pos_left="center",
+            #     min_=80,
+            #     max_=1700,
+            #     dimension=1,
+            #     range_color=["#D7DA8B", "#E15457"],
+            # ),
+        )
+    )
+
+    grid = Grid(
+        init_opts=opts.InitOpts(
+            width="100%",
+            height="1600px",
+            renderer='svg',
+            bg_color='white'
+        )
+    )
+
+    grid.add(
+        bar,
+        opts.GridOpts(
+            pos_left="50%",
+            # pos_right='20px',
+        ),
+        is_control_axis_index=True,
+    )
+    return grid
+```
+
+
+
+```{python}
+####################
+#  等位图公共函数
+####################
+
+# def enroll_number_sum(year: str, category: str = 'ac'):
+#     """ dfsum: 添加一列存放累积数据 """
+#     dfsum = df.sort_values(by=f"[{year}]", ascending=False)
+#     dfsum["名称"] += np.where(dfsum[f"[{str(int(year)-1)}]"].isna(), "(new)","") # 识别是否为新校
+#     dfsum = dfsum[["名称", f"招生人数_{year}_{category}", f"指标生_{year}_{category}"]]
+#     # 累积值为正录的人数（即：减去指标生和自招生）
+#     dfsum[f"累计_{category}"] = (dfsum[f"招生人数_{year}_{category}"] - dfsum[f"指标生_{year}_{category}"]).cumsum(axis=0)
+
+#     return dfsum
+
+def number_table(year:str, total_ac:int, total_d:int):
+    """绘制录取人数和比例的表格"""
+    table = Table()
+
+    headers = ["类别", "总人数", "总录取人数/比例", "指标生/比例", "正录人数/比例"]
+
+    total = total_ac + total_d
+    all_ac = df[f"招生人数_{year}_ac"].sum()  
+    all_d = df[f"招生人数_{year}_d"].sum()  
+    zbs_ac = df[f"指标生_{year}_ac"].sum()
+    zbs_d = df[f"指标生_{year}_d"].sum()
+
+    print(zbs_ac)
+    rows = [
+        [
+            "AC+D", 
+            total, 
+            f"{all_ac + all_d:.0f}/{100*(all_ac + all_d)/total:.0f}%", 
+            f"{zbs_ac + zbs_d:.0f}/{100*(zbs_ac + zbs_d)/total:.0f}%", 
+            f"{all_ac - zbs_ac + all_d - zbs_d:.0f}/{100*(all_ac - zbs_ac + all_d - zbs_d)/total:.0f}%" 
+        ],
+        ["AC", total_ac, f"{all_ac:.0f}/{100*all_ac/total_ac:.0f}%", f"{zbs_ac:.0f}/{100*zbs_ac/total_ac:.0f}%", f"{all_ac - zbs_ac:.0f}/{100*(all_ac - zbs_ac)/total_ac:.0f}%" ],
+        ["D", total_d, f"{all_d:.0f}/{100*all_d/total_d:.0f}%", f"{zbs_d:.0f}/{100*zbs_d/total_d:.0f}%", f"{all_d - zbs_d:.0f}/{100*(all_d - zbs_d)/total_d:.0f}%" ],
+    ]
+    table.add(headers, rows)
+    return table
+
+def level_sunburst(year: str, category: str, total: int, ignore_zbs: bool):
+    """绘制旭日图
+    
+    ignore_zbs = True: 去除指标生的图：可作为正录报志愿参考
+    ignore_zbs = False: 不去除指标生的图,可作为评估学校整体位置，或填报指标生志愿参考
+    """
+    data_grade = [
+        {"name": "A+", "value": total * 0.05},
+        {"name": "A", "value": total * 0.2},
+        {"name": "B+", "value": total * 0.25},
+        {"name": "B", "value": total * 0.25},
+        {"name": "C+", "value": total * 0.2},
+        {"name": "C", "value": total * 0.05},
+    ]
+
+    _df = add_new_tag(year)
+
+    data = [] # sunburst 的 datasource 是数组，要做数据格式转换
+    idx = 0
+    sum = 0
+    for name, row in _df.iterrows():
+        _zs = row[f"招生人数_{year}_{category}"]
+        _zb = row[f"指标生_{year}_{category}"]
+        if not pd.isnull(_zs):
+            # 累积值根据是否去除指标生而定
+            _v = _zs  - 0 if (not ignore_zbs) or pd.isnull(_zb)  else _zb
+            idx += 1
+            data.append({"name": str(idx) + "_" + row["名称"], "value": _v})
+            sum += _v
+
+    # 去除指标生时，计算缺口时要减去指标生
+    data.append({"name": "缺口", "value": total - sum - (df[f"指标生_{year}_{category}"].sum() if ignore_zbs else 0)})
+
+    return (
+        Sunburst(init_opts=opts.InitOpts(width="100%",height="600px",renderer='svg',bg_color='white'))
+        .add(
+            "",
+            data_pair=data_grade,
+            highlight_policy="ancestor",
+            radius=[0, "95%"],
+            sort_=types.JsCode("null"),
+            levels=[
+                {},
+                {"r0": "15%", "r": "23%", "label": {"align": "right"}},
+            ],
+            label_opts=opts.LabelOpts(font_size=10, font_weight="bold"),
+        )
+        .add(
+            "",
+            data_pair=data,
+            highlight_policy="ancestor",
+            radius=[0, "95%"],
+            sort_=types.JsCode("null"),
+            levels=[
+                {},
+                {"r0": "25%", "r": "100%", "label": {"align": "right"}},
+            ],
+            label_opts=opts.LabelOpts(
+                # formatter + rich = 可实现更丰富的自定义显示
+                formatter='{schoolname| {b}}',
+                rich={
+                    "schoolname": {"fontSize":'0.5em'}
+                },
+            ),
+        )
+        .set_global_opts(
+            title_opts=get_title(f"{year} {category} 类招生人数累计图({'去除指标生' if ignore_zbs else '全部'})"),
+            toolbox_opts=g_toolbox_opts,        
+            legend_opts=opts.LegendOpts(is_show=False),
+        )
+    )
+```
+
+## 2023 年
+
+以下数据源自深圳市招生考试办公室发布的文件：
+
+- [2023年考生报考指导手册](http://szeb.sz.gov.cn/szzkw/qt/tzgg/content/post_10610222.html)
+
+### 招生人数
+
+以已发布的最新年份的 AC 类录取分数线排序，所以当年新学校在当年录取分公布前会排在末尾，分数公布后会得到修正。
 
 ```{python}
 # | output: true
-
-# 以 2022 录取分做升序 —— pyecharts 绘图是逆序的
-# df.iloc[::-1] 可以实现逆序
-
-bar = (
-    Bar(init_opts=opts.InitOpts())
-    .add_dataset(
-        source=[dfsum.columns.values.tolist()] + dfsum.iloc[::-1].values.tolist()
-    )
-    .add_yaxis(
-        series_name="",
-        y_axis=[], # add_dataset() 中已给出，会自动选择第1、2列，此处可置空
-        label_opts=opts.LabelOpts(position="right"),
-    )
-    .set_global_opts(
-        title_opts=get_title("2023 AC 类招生人数对比图"),
-        legend_opts=opts.LegendOpts(is_show=False),
-        xaxis_opts=opts.AxisOpts(name=""),
-        yaxis_opts=opts.AxisOpts(type_="category"),
-        toolbox_opts=g_toolbox_opts,
-        visualmap_opts=opts.VisualMapOpts(
-            orient="horizontal",
-            pos_left="center",
-            min_=80,
-            max_=1700,
-            dimension=1,
-            range_color=["#D7DA8B", "#E15457"],
-        ),
-    )
-)
-
-grid = Grid(
-    init_opts=opts.InitOpts(
-        width="100%",
-        height="1600px",
-        renderer='svg',
-        bg_color='white'
-    )
-)
-
-grid.add(
-    bar,
-    opts.GridOpts(
-        pos_left="50%",
-        # pos_right='20px',
-    ),
-    is_control_axis_index=True,
-)
-grid.render_notebook()
+enroll_number_bar("2023").render_notebook()
 ```
 
 ### 等位图
 
-```{python}
-total = 60000
-
-data = []
-idx = 0
-sum = 0
-for name, row in dfsum.iterrows():
-    sum += row["招生人数"]
-    idx += 1
-    data.append({"name": str(idx) + "_" + row["名称"], "value": row["招生人数"]})
-
-
-data.append({"name": "缺口", "value": total - sum})
-data
-```
-
-```{python}
-data_grade = [
-    {"name": "A+", "value": total * 0.05},
-    {"name": "A", "value": total * 0.2},
-    {"name": "B+", "value": total * 0.25},
-    {"name": "B", "value": total * 0.25},
-    {"name": "C+", "value": total * 0.2},
-    {"name": "C", "value": total * 0.05},
-]
-data_grade
-```
-
 预估假设：
 
-2023 年 12+ 万报名，按 AC:D = 1:1 预估，AC 类考生约 6 万。
+- 网络数据（本人未能证实）: 2023 年 126000 报名，AC 类考生约 57800 人，D 类考生约 68200 人。
+
+整体录取比例为：
 
 ```{python}
 # | output: true
-
-(
-    Sunburst(init_opts=opts.InitOpts(width="100%",height="600px",renderer='svg',bg_color='white'))
-    .add(
-        "",
-        data_pair=data_grade,
-        highlight_policy="ancestor",
-        radius=[0, "95%"],
-        sort_=types.JsCode("null"),
-        levels=[
-            {},
-            {"r0": "15%", "r": "23%", "label": {"align": "right"}},
-        ],
-        label_opts=opts.LabelOpts(font_size=10, font_weight="bold"),
-    )
-    .add(
-        "",
-        data_pair=data,
-        highlight_policy="ancestor",
-        radius=[0, "95%"],
-        sort_=types.JsCode("null"),
-        levels=[
-            {},
-            {"r0": "25%", "r": "100%", "label": {"align": "right"}},
-        ],
-        label_opts=opts.LabelOpts(
-            # formatter + rich = 可实现更丰富的自定义显示
-            formatter='{schoolname| {b}}',
-            rich={
-                "schoolname": {"fontSize":'0.5em'}
-            },
-        ),
-    )
-    .set_global_opts(
-        title_opts=get_title("2023 AC 类招生人数累计图"),
-        toolbox_opts=g_toolbox_opts,        
-        legend_opts=opts.LegendOpts(is_show=False),
-    )
-    .render_notebook()
-)
+number_table("2023", 57800, 68200).render_notebook()
 ```
 
-D 类就不作图了，看着太扎心了！
+上表为招生计划中的比例，实际并发所有指标生名额都能被用到，2022 年指标生使用比例就比较小，2023 年使用比例网传非常高。
 
+因为指标生运作机制，致使指标生通常比正录的分数要低，所以正录的分数线通常在最终高一开学后可能是学生中的中位线，而不是最低线。—— 新学校除外，可能有特例。
+
+根据是否去除指标生分开绘图，可用作不同的志愿填报参考。
+
+- 全部（不去除指标生）：可作为评估学校整体位置，或**填报指标生志愿参考**
+- 去除指标生：可**作为正录（第一批）报志愿参考**
+
+```{python}
+# | output: true
+level_sunburst("2023", "ac", 57800, False).render_notebook()
+```
+
+举例：如果孩子摸底成绩在 B+ 中部，可以从上图中 B+ 中部的 30~40 排名的学校中选一个填报指标生。
+
+```{python}
+# | output: true
+level_sunburst("2023", "ac", 57800, True).render_notebook()
+```
+
+举例：如果孩子摸底成绩在 B+ 中部，可以从上图中 B+ 中部 40~50 排名的学校中选择冲和稳的 8 个，然后在选 4 个 B+ 底和 B 区的保底。
+
+**填报志愿时，分数的绝对值并不重要，2023 年题目简单，大家分数都高，但等级是基本不变的，孩子只要正常发挥，A 的依然是 A, B 的还会是 B，所以报志愿要按等位来报，一定要找老师了解孩子摸底考试在学校的排名和等位，结合上表填报志愿。**
+
+**希望 2024 年大家都能填报得当，不滑档。**
+
+```{python}
+# | output: true
+level_sunburst("2023", "d", 68200, False).render_notebook()
+```
+
+```{python}
+# | output: true
+level_sunburst("2023", "d", 68200, True).render_notebook()
+```
+
+D 类看着太扎心了！只有 A 分数段的才有公办普高读，大部分都要去民办或职高了。
