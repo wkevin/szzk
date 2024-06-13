@@ -8,9 +8,6 @@ format:
     toc-expand: 2
     toc-title: 目录
     fig-align: center
-comments:
-  giscus: 
-    repo: wkevin/bitter-data
 ---
 
 # 广东高考
