@@ -26,19 +26,50 @@ from pyecharts import options as opts
 from pyecharts.charts import Line, Grid, Bar, Sunburst
 from pyecharts.components import Table
 from pyecharts.commons.utils import JsCode
-
 ```
 
 ```{python}
+###### 全局变量 ######
 # 已经出了成绩的最新年份
 scoredyear = "2023"
 years = [f"{y}" for y in list(range(2019, int(scoredyear) + 1, 1))]
 years_score = [f"[{y}]" for y in years]
 print(f"已出分年度: {years}")
 print(f"data 中已出分年度的 column 名称: {years_score}")
+# 报名人数（假设数据）
+enroll_number_2023 = 126000  # 2023 年报名人数
+enroll_number_2023_ac = 57800  # 2023 年 AC 类报名人数
+enroll_number_2023_d = enroll_number_2023 - enroll_number_2023_ac
+enroll_number_2024 = 131000  # 2024 年报名人数
+enroll_number_2024_ac = 65000  # 2024 年 AC 类报名人数
+enroll_number_2024_d = enroll_number_2024 - enroll_number_2024_ac
+# 指标生录取率（假设数据）
 zbs_rate_2023 = 0.5
 zbs_rate_2024 = 0.4
 ```
+
+本文数据主要来自深圳招生办公室公开文件：
+
+- 2023年考生报考指导手册：[链接1](http://szeb.sz.gov.cn/szzkw/qt/tzgg/content/post_10610222.html)、[链接2](http://szeb.sz.gov.cn/szzkw/zkgg/zkxx/content/post_10610216.html)
+- [2024年考生报考指导手册](http://szeb.sz.gov.cn/szszsksbgs/zkcx/zkzz/2024zkwsxczxjd/ksbkzdsc/content/post_11303237.html)
+
+但也有几个关键数据是来自网络，这是导致录取比例、报考等位中的图与实际有偏差的主因：
+
+```{python}
+#| echo: false
+#| output: asis
+
+print(f"""
+- 报名人数: 
+    - 2023: 报名约 {enroll_number_2023} 人，AC 类约 {enroll_number_2023_ac} 人，D 类约 {enroll_number_2023_d} 人。
+    - 2024: 报名约 {enroll_number_2024} 人，AC 类约 {enroll_number_2024_ac} 人，D 类约 {enroll_number_2024_d} 人。
+- 指标生录取率: 
+    - 2023：预估 {zbs_rate_2023} —— 即只有 50% 的指标生名额被使用，其余的名额会放回到正录
+    - 2024：预估 {zbs_rate_2024}
+""")
+```
+
+**以上假设数据本人未能证实，不承担责任，仅供参考。**
 
 ```{python}
 # 全局变量
@@ -133,10 +164,88 @@ for y in years:
 (df) 
 ```
 
+```{python}
+def transfer_ac_and_d(year: str, only_gov=True, add_new_tag=True):
+    """将公办 AC 和 D 类的招生人数整合到一行（民办都是 ACD 混合的），重新命名为新列：
+    AC、D、ACD、AC_指标生、D_指标生、ACD_指标生；
+    将学校名称中的（一）\（二）去掉；
+    按指定 year 排序，如果 scoredyear 还没有到 year 年度，则按 scoredyear 排序；
+    并可识别指定年份是否为新校，添加 new 标签
+    """
 
-## 学校排名演变
+    _df = df.copy()
+
+    if only_gov:
+        _df = _df[_df["办学性质"] == "公办"]  # 去掉民办
+
+    ### AC、D、ACD 类人数合并一行，代码使用 AC 的
+    _df_0 = _df[~_df["学校名称"].str.contains("（二）")]  # 筛出 AC & ACD
+    _df_0.loc[:, "学校名称"] = _df_0["学校名称"].str.replace(
+        "（一）", ""
+    )  # 列名中去掉 (一)
+
+    _df_1 = _df[_df["学校名称"].str.contains("（一）")]  # 筛出 AC 类
+    _df_1 = _df_1.rename(columns={f"招生人数_{year}": "AC"})  # 列名改为AC
+    _df_1 = _df_1.rename(columns={f"指标生人数_{year}": "AC_指标生"})  # 列名改为AC
+    _df_1 = _df_1[["代码", "AC", "AC_指标生"]]
+
+    _df_2 = _df[_df["学校名称"].str.contains("（二）")]  # 筛出 D 类
+    _df_2.loc[:, "学校名称"] = _df_2["学校名称"].str.replace("（二）", "")
+    _df_2 = _df_2.rename(columns={f"招生人数_{year}": "D"})
+    _df_2 = _df_2.rename(columns={f"指标生人数_{year}": "D_指标生"})
+    _df_2 = _df_2[["学校名称", "D", "D_指标生"]]
+
+    # _df_3 = _df[~_df["学校名称"].str.contains("（一）")][~_df["学校名称"].str.contains("（二）")]  # 筛出 ACD 类
+    filtered_school_names = _df["学校名称"].str.contains("（一）") | _df[
+        "学校名称"
+    ].str.contains("（二）")
+    _df_3 = _df[~filtered_school_names.reindex(_df.index)]
+    _df_3 = _df_3.rename(columns={f"招生人数_{year}": "ACD"})
+    _df_3 = _df_3.rename(columns={f"指标生人数_{year}": "ACD_指标生"})
+    _df_3 = _df_3[["代码", "ACD", "ACD_指标生"]]
+
+    # AC 和 ACD merge on 代码，D merge on 校名
+    _df = (
+        _df_0.merge(_df_1, on="代码", how="left")
+        .merge(_df_2, on="学校名称", how="left")
+        .merge(_df_3, on="代码", how="left")
+    )
+
+    if add_new_tag:
+        if year in df.columns:
+            # print(f"{year} 已有录取分数列，使用前后录取分数做判断")
+            _df = _df.sort_values(by=f"[{year}]", ascending=False)
+            _df["学校名称"] += np.where(
+                _df[f"[{str(int(year)-1)}]"].isna(), "(new)", ""
+            )
+        else:
+            # print(f"{year} 没有录取分数列，使用招生人数做判断")
+            _df = _df.sort_values(by=f"[{scoredyear}]", ascending=False)
+            _df["学校名称"] += np.where(
+                _df[f"招生人数_{str(int(year)-1)}"].isna(), "(new)", ""
+            )
+
+    # _df.to_csv("foobar.csv")
+    # 仅返回当年有招生的
+    return _df[_df["AC"].notnull() | _df["D"].notnull() | _df["ACD"].notnull()]
+
+
+# _ndf = transfer_ac_and_d("2023")
+# print(_ndf[_ndf["学校名称"].str.contains("new")]["学校名称"].to_numpy())
+# _ndf = transfer_ac_and_d("2024")
+# print(_ndf[_ndf["学校名称"].str.contains("new")]["学校名称"].to_numpy())
+```
+
+
+## 学校排名
 
 **仅排序公办高中。**
+
+排序原则：
+
+1. 第一序：AC 类录取分数
+2. 第二序：招生人数，招生人数多着靠前
+3. 第三序：代码
 
 ```{python}
 # 演变图绘制到当前已出成绩的年份（scoredyear）
@@ -151,12 +260,6 @@ for y in years:
 dfsort.set_index(["学校名称"], inplace=True)
 (dfsort)
 ```
-
-排序原则：
-
-1. 第一序：AC 类录取分数
-2. 第二序：招生人数，招生人数多着靠前
-3. 第三序：代码
 
 ```{python}
 # | output: true
@@ -257,79 +360,7 @@ grid.render_notebook()
 |民办|50|46|
 
 
-## 招生人数
-
-```{python}
-def transfer_ac_and_d(year: str, only_gov=True, add_new_tag=True):
-    """将公办 AC 和 D 类的招生人数整合到一行（民办都是 ACD 混合的），重新命名为新列：
-    AC、D、ACD、AC_指标生、D_指标生、ACD_指标生；
-    将学校名称中的（一）\（二）去掉；
-    按指定 year 排序，如果 scoredyear 还没有到 year 年度，则按 scoredyear 排序；
-    并可识别指定年份是否为新校，添加 new 标签
-    """
-
-    _df = df.copy()
-
-    if only_gov:
-        _df = _df[_df["办学性质"] == "公办"]  # 去掉民办
-
-    ### AC、D、ACD 类人数合并一行，代码使用 AC 的
-    _df_0 = _df[~_df["学校名称"].str.contains("（二）")]  # 筛出 AC & ACD
-    _df_0.loc[:, "学校名称"] = _df_0["学校名称"].str.replace(
-        "（一）", ""
-    )  # 列名中去掉 (一)
-
-    _df_1 = _df[_df["学校名称"].str.contains("（一）")]  # 筛出 AC 类
-    _df_1 = _df_1.rename(columns={f"招生人数_{year}": "AC"})  # 列名改为AC
-    _df_1 = _df_1.rename(columns={f"指标生人数_{year}": "AC_指标生"})  # 列名改为AC
-    _df_1 = _df_1[["代码", "AC", "AC_指标生"]]
-
-    _df_2 = _df[_df["学校名称"].str.contains("（二）")]  # 筛出 D 类
-    _df_2.loc[:, "学校名称"] = _df_2["学校名称"].str.replace("（二）", "")
-    _df_2 = _df_2.rename(columns={f"招生人数_{year}": "D"})
-    _df_2 = _df_2.rename(columns={f"指标生人数_{year}": "D_指标生"})
-    _df_2 = _df_2[["学校名称", "D", "D_指标生"]]
-
-    # _df_3 = _df[~_df["学校名称"].str.contains("（一）")][~_df["学校名称"].str.contains("（二）")]  # 筛出 ACD 类
-    filtered_school_names = _df["学校名称"].str.contains("（一）") | _df[
-        "学校名称"
-    ].str.contains("（二）")
-    _df_3 = _df[~filtered_school_names.reindex(_df.index)]
-    _df_3 = _df_3.rename(columns={f"招生人数_{year}": "ACD"})
-    _df_3 = _df_3.rename(columns={f"指标生人数_{year}": "ACD_指标生"})
-    _df_3 = _df_3[["代码", "ACD", "ACD_指标生"]]
-
-    # AC 和 ACD merge on 代码，D merge on 校名
-    _df = (
-        _df_0.merge(_df_1, on="代码", how="left")
-        .merge(_df_2, on="学校名称", how="left")
-        .merge(_df_3, on="代码", how="left")
-    )
-
-    if add_new_tag:
-        if year in df.columns:
-            # print(f"{year} 已有录取分数列，使用前后录取分数做判断")
-            _df = _df.sort_values(by=f"[{year}]", ascending=False)
-            _df["学校名称"] += np.where(
-                _df[f"[{str(int(year)-1)}]"].isna(), "(new)", ""
-            )
-        else:
-            # print(f"{year} 没有录取分数列，使用招生人数做判断")
-            _df = _df.sort_values(by=f"[{scoredyear}]", ascending=False)
-            _df["学校名称"] += np.where(
-                _df[f"招生人数_{str(int(year)-1)}"].isna(), "(new)", ""
-            )
-
-    _df.to_csv("foobar.csv")
-    # 仅返回当年有招生的
-    return _df[_df["AC"].notnull() | _df["D"].notnull() | _df["ACD"].notnull()]
-
-
-# _ndf = transfer_ac_and_d("2023")
-# print(_ndf[_ndf["学校名称"].str.contains("new")]["学校名称"].to_numpy())
-# _ndf = transfer_ac_and_d("2024")
-# print(_ndf[_ndf["学校名称"].str.contains("new")]["学校名称"].to_numpy())
-```
+## 学位统计
 
 ```{python}
 def admit_number_bar(year: str):
@@ -472,36 +503,51 @@ def enroll_rate_table(year: str, eroll_ac: int, eroll_d: int, zbs_rate: float = 
     return table
 ```
 
+- 将 ACD 类学校按 3:1 拆分到 AC:D 中，不单独做 ACD 一行。
+- 指标生有效使用率每年变化，并且教育局和学校也不公布，所以只能预估。
+
 ### 2023 
 
-- 网络数据: 2023 年 126000 报名，AC 类考生约 57800 人，D 类考生约 68200 人。—— **此数据本人未能证实，不承担责任，仅供预估参考。**
-- 其他数据来自深圳招生办公室公开文件。
+- 2022 年指标生使用比例就比较小，2023 年使用比例网传会比较高，本文预估为 0.5。
 
 ```{python}
 # | output: true
-enroll_rate_table("2023", 57800, 68200, zbs_rate_2023).render_notebook()
+enroll_rate_table("2023", enroll_number_2023_ac, enroll_number_2023_d, zbs_rate_2023).render_notebook()
 ```
 
-- 上表为招生计划中的比例，实际并非所有指标生名额都能被用到，2022 年指标生使用比例就比较小，2023 年使用比例网传会比较高，我们按 0.5 做修订。
-- 上表显示：AC 类录取比例 84%，如果指标生都用满的话，84% 中的 41% 会通过指标生上学，但 0.5 修订后变成：21% 指标生 + 63% 正录。
+上表显示：AC 类录取比例 84%，如果指标生都用满的话，84% 中的 41% 会通过指标生上学，但 0.5 修订后变成：21% 指标生 + 63% 正录。
 
 ### 2024
 
-- 网络数据: 2024 年 131000 报名，AC 类考生约 61000 人，D 类考生约 70000 人。—— **此数据本人未能证实，不承担责任，仅供预估参考。**
-- 其他数据来自深圳招生办公室公开文件。
+- 2024 年新学校较多，听说新校的指标生使用率很低，拉低了整体使用率，所以本文预估为 0.4。
 
 ```{python}
 # | output: true
-enroll_rate_table("2024", 61000, 70000, zbs_rate_2024).render_notebook()
+enroll_rate_table("2024", enroll_number_2024_ac, enroll_number_2024_d, zbs_rate_2024).render_notebook()
 ```
 
 - 总体录取比例与 2023 年几乎持平。
-- 指标生有效比例根据 2023 年比较低，有些新学校 25% 都不到，此处取 0.4 做修正（比 2023 的 0.5 降低一些）
+- 但指标生使用率降低导致正录比例升高
+    - 乐观解读可以是：学校更多的学位留个正录，更公平。
+    - 悲观解读可以是：学校更少的学校留个指标生，不公平，并且会抬高正录的分数线，感觉学校更难考了。
 
+同一个事情，乐观和悲观角度不同，感受不同，各自解读吧。
 
 ## 报考等位
 
+我们试图要回答的两个问题：
+
+1. 孩子当前这个等位（如：B+）该怎么报**指标生志愿** ？
+2. 孩子当前这个等位（如：B+）该怎么报**正录志愿**？
+
+第 1 个问题因为指标生运作机制，且涉及因素较多，致使指标生通常比正录的分数要低，正录的分数线通常在最终高一开学后可能是中位线，而不是最低线（新学校除外，可能有特例）—— 所以此处不讨论该问题，填报时根据下面的正录参考，适当提高 5~15 分填报即可。
+
+第 2 个问题用下面的图展示，主要通过描述**招生人数**与**报名人数**的匹配关系来展开。
+
 ```{python}
+# | echo: false
+# | output: asis
+
 # def admit_number_sum(year: str, category: str = 'ac'):
 #     """ dfsum: 添加一列存放累积数据 """
 #     dfsum = df.sort_values(by=f"[{year}]", ascending=False)
@@ -541,35 +587,44 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int, zbs_rate: float =
     idx = 0
     adm_sum = 0
     adm_sum_zbs = 0
+    adm_sum_zbs_offset = 0
     for name, row in _df.iterrows():
-        adm_all = row[f"{ac_or_d}"] if not pd.isnull(row[f"{ac_or_d}"]) else 0
-        adm_zbs = (
-            row[f"{ac_or_d}_指标生"] if not pd.isnull(row[f"{ac_or_d}_指标生"]) else 0
-        )
+        _all = row[f"{ac_or_d}"] if not pd.isnull(row[f"{ac_or_d}"]) else 0
         # 把 ACD 的名额按 3:1 拆分给 AC:D
-        adm_all += int(
+        _all += (
             0
             if pd.isnull(row["ACD"])
             else (row["ACD"] * (0.75 if ac_or_d == "AC" else 0.25))
         )
-        adm_zbs += int(
+
+        _zbs = (
+            row[f"{ac_or_d}_指标生"] if not pd.isnull(row[f"{ac_or_d}_指标生"]) else 0
+        )
+        # 其实是没有必要的，因为 ACD 类学校基本没有指标生
+        _zbs += (
             0
             if pd.isnull(row["ACD_指标生"])
             else (row["ACD_指标生"] * (0.75 if ac_or_d == "AC" else 0.25))
         )
-        adm_zbs *= zbs_rate  # 用录用比例修订指标生
-        adm_zbs = int(adm_zbs)
+        adm_sum += _all
+        adm_sum_zbs += _zbs
+
+        _zbs *= zbs_rate  # 用录用比例修订指标生
+        adm_sum_zbs_offset += _zbs
 
         idx += 1
         data.append(
-            {"name": str(idx) + "_" + row["学校名称"], "value": int(adm_all - adm_zbs)}
+            {"name": str(idx) + "_" + row["学校名称"], "value": int(_all - _zbs)}
         )
-        adm_sum += int(adm_all)
-        adm_sum_zbs += adm_zbs
 
     print(
-        f"{ac_or_d} 类总报名 {enroll_total}, 总录取 {int(adm_sum)}，\n{zbs_rate} 比例修订后预估：指标生录取 {adm_sum_zbs}人, 正录录取 {adm_sum - adm_sum_zbs}人，\n正录报名 {enroll_total - adm_sum_zbs}人，缺口{enroll_total - adm_sum}"
+        f"""
+    - {ac_or_d} 类总录取名额 {int(adm_sum)}，指标生名额 {int(adm_sum_zbs)}，正录名额 {int(adm_sum - adm_sum_zbs)}；
+    - 指标生预估有效录取比例 {zbs_rate} 修订后：指标生实录 {int(adm_sum_zbs_offset)}人, 正录实录 {int(adm_sum - adm_sum_zbs_offset)}人，
+    - {ac_or_d} 类总报名 {enroll_total}，缺口{int(enroll_total - adm_sum)}
+    """
     )
+
     # 计算缺口时也要减去指标生
     data.append(
         {
@@ -624,30 +679,27 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int, zbs_rate: float =
     )
 ```
 
-我们试图要回答的两个问题：
-
-1. 孩子当前这个等位（如：B+）该怎么报**指标生志愿** ？
-2. 孩子当前这个等位（如：B+）该怎么报**正录志愿**？
-
-第 1 个问题因为指标生运作机制，且涉及因素较多，致使指标生通常比正录的分数要低，所以正录的分数线通常在最终高一开学后可能是中位线，而不是最低线（新学校除外，可能有特例）—— 所以此处不讨论该问题。
-
-第 2 个问题用下面的图展示，主要描述了**招生人数**与**报名人数**的关系：
-
 - 下面的图推荐在电脑上打开，手机上查看比较拥挤。
 - 内圈 A+、A、B+、B 等是报名人数的等位
 - 外圈是各个学校按前次录用最低分数线排名后的，招生人数累积值
 - 外圈的缺口：即报名人数与招生人数之间的差值 —— 民办或职校去向
-- 指标生会**预估**一个录用比例: 0.5 —— 即只有 50% 的指标生名额被使用，其余的名额会放回到正录
 
 ### 2023
 
-指标生**预估**录用比例: 0.5
+```{python}
+#| echo: false
+#| output: asis
+
+print(f"""
+指标生录取率预估 {zbs_rate_2023}
+""")
+```
 
 #### AC 类
 
 ```{python}
-# | output: true
-level_sunburst("2023", "AC", 57800, zbs_rate_2023).render_notebook()
+# | output: asis
+level_sunburst("2023", "AC", enroll_number_2023_ac, zbs_rate_2023).render_notebook()
 ```
 
 - 比如 `54.弘知高中`，手册中招生 `710` 人，指标生 `355` 人，假设指标生录用率 0.5，即 `355*0.5 = 178` 人走指标生，剩下 `177` 人归入正录，那么正录的名额就是 `710 - 178 = 532` 人 —— 图中的数字就是如此计算的。
@@ -668,8 +720,8 @@ level_sunburst("2023", "AC", 57800, zbs_rate_2023).render_notebook()
 #### D 类
 
 ```{python}
-# | output: true
-level_sunburst("2023", "D", 68200, zbs_rate_2023).render_notebook()
+# | output: asis
+level_sunburst("2023", "D", enroll_number_2023_d, zbs_rate_2023).render_notebook()
 ```
 
 D 类看着太扎心了！只有 A 分数段的中部以上，才有公办普高读，大部分都要去民办或职高了。
@@ -681,24 +733,48 @@ D 类看着太扎心了！只有 A 分数段的中部以上，才有公办普高
 
 ### 2024
 
-指标生**预估**录用比例: 0.4
+```{python}
+#| echo: false
+#| output: asis
+
+print(f"""
+指标生录取率预估 {zbs_rate_2024}
+""")
+```
 
 #### AC 类
 
 ```{python}
-# | output: true
-level_sunburst("2024", "AC", 61000, zbs_rate_2024).render_notebook()
+# | output: asis
+level_sunburst("2024", "AC", enroll_number_2024_ac, zbs_rate_2024).render_notebook()
 ```
+
+我们调整一下假设数据，把 AC 类报名人数增加 10000 再画一次：
+
+```{python}
+# | output: asis
+
+level_sunburst("2024", "AC", enroll_number_2024_ac + 10000, zbs_rate_2024).render_notebook()
+```
+
+上面两图可以理解为悲观、乐观预估，实际情况应该两种之间。
 
 #### D 类
 
 ```{python}
-# | output: true
-level_sunburst("2024", "D", 70000, zbs_rate_2024).render_notebook()
+# | output: asis
+level_sunburst("2024", "D", enroll_number_2024_d, zbs_rate_2024).render_notebook()
 ```
 
-## 参考文档
+调整假设数据，把 D 类报名人数减少 10000 再画一次：
 
+```{python}
+# | output: asis
+level_sunburst("2024", "D", enroll_number_2024_d - 10000, zbs_rate_2024).render_notebook()
+```
 
-- 2023年考生报考指导手册：[链接1](http://szeb.sz.gov.cn/szzkw/qt/tzgg/content/post_10610222.html)、[链接2](http://szeb.sz.gov.cn/szzkw/zkgg/zkxx/content/post_10610216.html)
-- [2024年考生报考指导手册](http://szeb.sz.gov.cn/szszsksbgs/zkcx/zkzz/2024zkwsxczxjd/ksbkzdsc/content/post_11303237.html)
+但即使 D 类乐观预估，也依然是只有 B+ 顶部才能够得着公办普高。
+
+对 AC 类的悲观、乐观，对 D 类就是相反的乐观、悲观 —— 人间苦楚、共情不易。
+
+**最后！祝愿深圳初中生都能够心想事成，考上理想的高中。**
