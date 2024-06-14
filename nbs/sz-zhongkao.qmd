@@ -672,7 +672,7 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int, zbs_rate: float =
             ),
         )
         .set_global_opts(
-            title_opts=get_title(f"{year} {ac_or_d} 类报考等位图"),
+            title_opts=get_title(f"{year} {ac_or_d} 类正录等位图"),
             toolbox_opts=g_toolbox_opts,
             legend_opts=opts.LegendOpts(is_show=False),
         )
