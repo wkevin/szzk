@@ -17,6 +17,7 @@ format:
 
 ```{python}
 from datetime import datetime as dt
+import math
 
 import numpy as np
 import pandas as pd
@@ -38,10 +39,16 @@ print(f"已出分年度: {years}")
 print(f"data 中已出分年度的 column 名称: {years_score}")
 # 报名人数（假设数据）
 enroll_number_2023 = 126000  # 2023 年报名人数
-enroll_number_2023_ac = 57800  # 2023 年 AC 类报名人数
+ac_rate_2023 = 0.45  # 2023 年 AC 类报名比例
+enroll_number_2023_ac = (
+    math.ceil(enroll_number_2023 * ac_rate_2023/ 100) * 100
+)  # 2023 年 AC 类报名人数
 enroll_number_2023_d = enroll_number_2023 - enroll_number_2023_ac
-enroll_number_2024 = 131000  # 2024 年报名人数
-enroll_number_2024_ac = 65000  # 2024 年 AC 类报名人数
+enroll_number_2024 = 132400  # 2024 年报名人数
+ac_rate_2024 = 0.45  # 2023 年 AC 类报名比例
+enroll_number_2024_ac = (
+    math.ceil(enroll_number_2024 * ac_rate_2024 / 100) * 100
+)  # 2024 年 AC 类报名人数
 enroll_number_2024_d = enroll_number_2024 - enroll_number_2024_ac
 # 指标生录取率（假设数据）
 zbs_rate_2023 = 0.5
@@ -61,15 +68,19 @@ zbs_rate_2024 = 0.4
 
 print(f"""
 - 报名人数: 
-    - 2023: 报名约 {enroll_number_2023} 人，AC 类约 {enroll_number_2023_ac} 人，D 类约 {enroll_number_2023_d} 人。
-    - 2024: 报名约 {enroll_number_2024} 人，AC 类约 {enroll_number_2024_ac} 人，D 类约 {enroll_number_2024_d} 人。
+    - 2023: 报名约 {enroll_number_2023} 人，AC 类约 {enroll_number_2023_ac} 人({int(ac_rate_2023*100)}%)，D 类约 {enroll_number_2023_d} 人。
+    - 2024: 报名约 {enroll_number_2024} 人，AC 类约 {enroll_number_2024_ac} 人({int(ac_rate_2024*100)}%)，D 类约 {enroll_number_2024_d} 人。
 - 指标生录取率: 
-    - 2023：预估 {zbs_rate_2023} —— 即只有 50% 的指标生名额被使用，其余的名额会放回到正录
+    - 2023：预估 {zbs_rate_2023} —— 即只有 {int(zbs_rate_2023*100)}% 的指标生名额被使用，其余的名额会放回到正录
     - 2024：预估 {zbs_rate_2024}
 """)
 ```
 
-**以上假设数据本人未能证实，不承担责任，仅供参考。**
+网络参考源：
+
+-  [2024年高中阶段学校招生计划发布](https://mp.weixin.qq.com/s/3oZ_jWBNPYajWd3NFAncTQ)
+
+**以上数据本人未能证实，不承担责任，仅供参考。**
 
 ```{python}
 # 全局变量
@@ -679,11 +690,12 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int, zbs_rate: float =
     )
 ```
 
-- 下面的图推荐在电脑上打开，手机上查看比较拥挤。
 - 内圈 A+、A、B+、B 等是报名人数的等位
 - 外圈是各个学校按前次录用最低分数线排名后的，招生人数累积值
 - 外圈的缺口：即报名人数与招生人数之间的差值 —— 民办或职校去向
 
+> 下面的图推荐在电脑上打开，手机上查看比较拥挤。
+  
 ### 2023
 
 ```{python}
@@ -749,12 +761,12 @@ print(f"""
 level_sunburst("2024", "AC", enroll_number_2024_ac, zbs_rate_2024).render_notebook()
 ```
 
-我们调整一下假设数据，把 AC 类报名人数增加 10000 再画一次：
+我们调整一下假设数据，把指标生的使用率提高 10% 再画一次：
 
 ```{python}
 # | output: asis
 
-level_sunburst("2024", "AC", enroll_number_2024_ac + 10000, zbs_rate_2024).render_notebook()
+level_sunburst("2024", "AC", enroll_number_2024_ac , zbs_rate_2024 + 0.1).render_notebook()
 ```
 
 上面两图可以理解为悲观、乐观预估，实际情况应该两种之间。
@@ -765,16 +777,5 @@ level_sunburst("2024", "AC", enroll_number_2024_ac + 10000, zbs_rate_2024).rende
 # | output: asis
 level_sunburst("2024", "D", enroll_number_2024_d, zbs_rate_2024).render_notebook()
 ```
-
-调整假设数据，把 D 类报名人数减少 10000 再画一次：
-
-```{python}
-# | output: asis
-level_sunburst("2024", "D", enroll_number_2024_d - 10000, zbs_rate_2024).render_notebook()
-```
-
-但即使 D 类乐观预估，也依然是只有 B+ 顶部才能够得着公办普高。
-
-对 AC 类的悲观、乐观，对 D 类就是相反的乐观、悲观 —— 人间苦楚、共情不易。
 
 **最后！祝愿深圳初中生都能够心想事成，考上理想的高中。**
