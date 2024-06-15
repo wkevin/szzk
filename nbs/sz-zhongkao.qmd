@@ -92,11 +92,11 @@ g_toolbox_opts=opts.ToolboxOpts(
     )
 ),
 
-def get_title(titlestr:str=""):
+def get_title(titlestr: str = ""):
     return opts.TitleOpts(
         title=titlestr,
         title_link="https://wkevin.github.io/bitter-data",
-        subtitle="https://wkevin.github.io/bitter-data",
+        subtitle=f"https://wkevin.github.io/bitter-data\n{dt.now().strftime('%Y-%m-%d')}",
         subtitle_link="https://wkevin.github.io/bitter-data",
         subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
     )
