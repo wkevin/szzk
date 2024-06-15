@@ -41,7 +41,7 @@ print(f"data 中已出分年度的 column 名称: {years_score}")
 enroll_number_2023 = 126000  # 2023 年报名人数
 ac_rate_2023 = 0.45  # 2023 年 AC 类报名比例
 enroll_number_2023_ac = (
-    math.ceil(enroll_number_2023 * ac_rate_2023/ 100) * 100
+    math.ceil(enroll_number_2023 * ac_rate_2023 / 100) * 100
 )  # 2023 年 AC 类报名人数
 enroll_number_2023_d = enroll_number_2023 - enroll_number_2023_ac
 enroll_number_2024 = 132400  # 2024 年报名人数
@@ -173,7 +173,7 @@ for y in years:
 def transpose_ac_and_d(year: str, only_gov=True, add_new_tag=True, df_input=None):
     """将 df_input 中的 AC 和 D 类的招生人数从行转置到列），重新命名为新列：
     AC、D、ACD、AC_指标生、D_指标生、ACD_指标生；
-    将学校名称中的（一）\（二）去掉；
+    将学校名称中的（一）、（二）去掉；
     按指定 year 排序，如果 scoredyear 还没有到 year 年度，则按 scoredyear 排序；
     并可识别指定年份是否为新校，添加 new 标签
     """
@@ -189,7 +189,6 @@ def transpose_ac_and_d(year: str, only_gov=True, add_new_tag=True, df_input=None
         "（一）", ""
     )  # 列名中去掉 (一)
 
-    _df.to_csv("foobar.csv")
     _df_1 = _df[_df["学校名称"].str.contains("（一）")]  # 筛出 AC 类
     _df_1 = _df_1.rename(columns={f"招生人数_{year}": "AC"})  # 列名改为AC
     _df_1 = _df_1.rename(columns={f"指标生人数_{year}": "AC_指标生"})  # 列名改为AC
@@ -232,7 +231,7 @@ def transpose_ac_and_d(year: str, only_gov=True, add_new_tag=True, df_input=None
                 _df[f"招生人数_{str(int(year)-1)}"].isna(), "(new)", ""
             )
 
-    _df.to_csv("foobar.csv")
+    # _df.to_csv("foobar.csv")
     # 仅返回当年有招生的
     return _df[_df["AC"].notnull() | _df["D"].notnull() | _df["ACD"].notnull()]
  
@@ -614,19 +613,12 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int):
 
     ac_or_d = ac_or_d.upper()
     _df = transpose_ac_and_d(year)
-    # 将 ACD 的名额按 3:1 拆分给 AC:D
-    # adm_acd = _df[f"ACD"].sum()
-    # adm_ac = _df[f"AC"].sum() + adm_acd * 0.75
-    # adm_d = _df[f"D"].sum() + adm_acd * 0.25
-    # adm_acd_zbs = _df[f"ACD_指标生"].sum()
-    # adm_ac_zbs = _df[f"AC_指标生"].sum() + adm_acd_zbs * 0.75
-    # adm_d_zbs = _df[f"D_指标生"].sum() + adm_acd_zbs * 0.25
 
     data = []  # sunburst 的 datasource 是数组，要做数据格式转换
     idx = 0
     adm_sum = 0  # 全部学位累积值
     adm_sum_zbs = 0  # 指标生学位累计值
-    adm_sum_zbs_offset = 0  # 指标生
+    adm_sum_zbs_real = 0  # 指标生实录累计值
     for name, row in _df.iterrows():
         _all = row[f"{ac_or_d}"] if not pd.isnull(row[f"{ac_or_d}"]) else 0
         # 把 ACD 的名额按 3:1 拆分给 AC:D
@@ -648,19 +640,24 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int):
         adm_sum += _all
         adm_sum_zbs += _zbs
 
-        _idx = row[f"{year}"]
+        if year in row.index.names:
+            _idx = row[f"{year}"]
+        else:
+            _idx = row[f"{int(year)-1}"]
+
+        # 指标生录取率模型
+        top = 30
         zbs_rate = (
             1
-            if _idx <= 30
+            if _idx >= 1 and _idx <= top
             else (
-                1 - (_idx - 30) / (_df23t["公办"] * 0.8 - 30)
+                1 - (_idx - top) / (_df23t["公办"] * 0.8 - top)
                 if _idx <= _df23t["公办"] * 0.8
                 else 0
             )
         )
         _zbs *= zbs_rate  # 用录用比例修订指标生
-        print(_idx, zbs_rate, _zbs, _all)
-        adm_sum_zbs_offset += _zbs
+        adm_sum_zbs_real += _zbs
 
         idx += 1
         data.append(
@@ -670,7 +667,7 @@ def level_sunburst(year: str, ac_or_d: str, enroll_total: int):
     print(
         f"""
     - {ac_or_d} 类学位数量 {int(adm_sum)}，指标生学位 {int(adm_sum_zbs)}，正录学位 {int(adm_sum - adm_sum_zbs)}；
-    - 指标生录用率模型修订后：指标生实录 {int(adm_sum_zbs_offset)}人, 正录实录 {int(adm_sum - adm_sum_zbs_offset)}人，
+    - 指标生录用率模型修订后：指标生实录 {int(adm_sum_zbs_real)}人, 正录实录 {int(adm_sum - adm_sum_zbs_real)}人，
     - {ac_or_d} 类总报名 {enroll_total}，缺口{int(enroll_total - adm_sum)}
     """
     )
@@ -761,11 +758,12 @@ level_sunburst("2023", "AC", enroll_number_2023_ac).render_notebook()
 
 **另外对自家孩子等级的评估要准确，本校的 B+ 未必是全市的 B+，有可能是 A，也有可能是 B。—— 要用全市的等级**
 
-> 复盘：
-> 2023 年 7 月公布中考等级线 
-> A+/573：只有top2学校了；
-> A/542：在 39.罗外附近; 
-> B+/489: 在 75.深外理工附近；
+> 复盘：  
+> 2023 年 7 月公布中考等级线   
+> A+/573：只有top2学校了；  
+> A/542：在 39.罗外附近;   
+> B+/489: 在 75.深外理工附近；  
+> 这是因为教育局发布的等级线是包括指标生的，即全体学生，上图是去掉指标生的，所以数据会有一些偏差。
 
 
 #### D 类
@@ -791,16 +789,6 @@ D 类看着太扎心了！只有 A 分数段的中部以上，才有公办普高
 # | output: asis
 level_sunburst("2024", "AC", enroll_number_2024_ac).render_notebook()
 ```
-
-我们调整一下假设数据，把指标生的使用率提高 10% 再画一次：
-
-```{python}
-# | output: asis
-
-level_sunburst("2024", "AC", enroll_number_2024_ac , zbs_rate_2024 + 0.1).render_notebook()
-```
-
-上面两图可以理解为悲观、乐观预估，实际情况应该两种之间。
 
 #### D 类
 
