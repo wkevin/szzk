@@ -366,8 +366,8 @@ grid.render_notebook()
 ## 学校数量
 
 ```{python}
-# | output: true
-# | fig-align: center
+# | echo: false
+# | output: asis
 
 # DataFrame.dropna(axis=0, how='any', thresh=None, subset=None, inplace=False)
 
@@ -377,12 +377,17 @@ grid.render_notebook()
 #     subset: 指定需要检查缺失值的特定列。
 #     inplace: 如果设为 True,则直接修改原有的 DataFrame,否则返回一个新的 DataFrame。
 
-_df23 = transpose_ac_and_d("2023", only_gov=False, add_new_tag=False,df_input=df_admit_number_2023).dropna(subset=['AC','D','ACD'], how='all')
-_df24 = transpose_ac_and_d("2024", only_gov=False, add_new_tag=False,df_input=df_admit_number_2024).dropna(subset=['AC','D','ACD'], how='all')
-_df23t = _df23['办学性质'].value_counts()
-_df24t = _df24['办学性质'].value_counts()
+_df23 = transpose_ac_and_d(
+    "2023", only_gov=False, add_new_tag=False, df_input=df_admit_number_2023
+).dropna(subset=["AC", "D", "ACD"], how="all")
+_df24 = transpose_ac_and_d(
+    "2024", only_gov=False, add_new_tag=False, df_input=df_admit_number_2024
+).dropna(subset=["AC", "D", "ACD"], how="all")
+_df23t = _df23["办学性质"].value_counts()
+_df24t = _df24["办学性质"].value_counts()
 
-print(f"""
+print(
+    f"""
 |普高数量|公办|民办|
 |--|--|--|
 |2023|{_df23t['公办']}|{_df23t['民办']}|
