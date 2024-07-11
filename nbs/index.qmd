@@ -1,6 +1,4 @@
 ---
-title: "深圳中考"
-
 format:
   html:
     code-fold: false
@@ -95,9 +93,9 @@ g_toolbox_opts=opts.ToolboxOpts(
 def get_title(titlestr: str = ""):
     return opts.TitleOpts(
         title=titlestr,
-        title_link="https://wkevin.github.io/bitter-data",
-        subtitle=f"https://wkevin.github.io/bitter-data\n{dt.now().strftime('%Y-%m-%d')}",
-        subtitle_link="https://wkevin.github.io/bitter-data",
+        title_link="https://wkevin.github.io/szzk",
+        subtitle=f"https://wkevin.github.io/szzk\n{dt.now().strftime('%Y-%m-%d')}",
+        subtitle_link="https://wkevin.github.io/szzk",
         subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
     )
 ```
@@ -113,15 +111,15 @@ def get_title(titlestr: str = ""):
 #       所以 scoredyear 最新年份的录取分中没有 Nan，导致解析为 int，与其他的 float 不一致，此处统一为 float
 #   engine: 默认为 'c', 还可以 'python'
 df_score_ac = pd.read_csv(
-    f"./sz-zhongkao/admit_score_ac.csv", decimal=",", dtype={f"[{scoredyear}]": float}
+    f"./dataset/admit_score_ac.csv", decimal=",", dtype={f"[{scoredyear}]": float}
 ).drop("学校名称", axis=1)
 
 df_admit_number_2023 = pd.read_csv(
-    f"./sz-zhongkao/admit_number_2023.csv", decimal=","
+    f"./dataset/admit_number_2023.csv", decimal=","
 ).rename(columns={"招生人数": "招生人数_2023", "指标生": "指标生人数_2023"})
 
 df_admit_number_2024 = pd.read_csv(
-    f"./sz-zhongkao/admit_number_2024.csv", decimal=","
+    f"./dataset/admit_number_2024.csv", decimal=","
 ).rename(columns={"招生人数": "招生人数_2024", "指标生": "指标生人数_2024"})
 
 # 使用最新年份的学校信息，根据代码合并 df

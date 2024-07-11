@@ -14,7 +14,5 @@ website:
   navbar:
     background: primary
     search: true
-  sidebar:
-    style: floating
 
-metadata-files: [nbdev.yml, sidebar.yml]
+metadata-files: [nbdev.yml]

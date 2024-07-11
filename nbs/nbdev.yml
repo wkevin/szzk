@@ -2,8 +2,8 @@ project:
   output-dir: _docs
 
 website:
-  title: "Bitter Data"
-  site-url: "https://wkevin.github.io/bitter-data"
-  description: "Bitter Data"
+  title: "深圳中考"
+  site-url: "https://wkevin.github.io/szzk"
+  description: "ShenZhen ZhongKao"
   repo-branch: main
-  repo-url: "https://github.com/wkevin/bitter-data"
+  repo-url: "https://github.com/wkevin/szzk"
