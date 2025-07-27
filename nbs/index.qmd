@@ -30,7 +30,7 @@ from pyecharts.commons.utils import JsCode
 ```{python}
 ###### 全局变量 ######
 # 已经出了成绩的最新年份
-scoredyear = "2024"
+scoredyear = "2025"
 years = [f"{y}" for y in list(range(2019, int(scoredyear) + 1, 1))]
 years_score = [f"[{y}]" for y in years]
 print(f"已出分年度: {years}")
