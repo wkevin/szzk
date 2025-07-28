@@ -52,20 +52,33 @@ enroll_number_2024_d = enroll_number_2024 - enroll_number_2024_ac
 
 ```{python}
 # 全局变量
-g_toolbox_opts=opts.ToolboxOpts(
-    feature=opts.ToolBoxFeatureOpts(
-        save_as_image = opts.ToolBoxFeatureSaveAsImageOpts(
-            background_color="white",
-            pixel_ratio = 5), 
-        restore=None,
-        data_view=None,
-        data_zoom=None,
-        magic_type=None,
-        # brush = opts.BrushOpts(),
-    )
-),
+g_toolbox_opts = (
+    opts.ToolboxOpts(
+        feature=opts.ToolBoxFeatureOpts(
+            save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(
+                background_color="white", pixel_ratio=5
+            ),
+            restore=None,
+            data_view=None,
+            data_zoom=None,
+            magic_type=None,
+            # brush = opts.BrushOpts(),
+        )
+    ),
+)
+
 
 def get_title(titlestr: str = ""):
+    return opts.TitleOpts(
+        title=titlestr,
+        title_link="https://wkevin.github.io/szzk",
+        subtitle=f"https://wkevin.github.io/szzk",
+        subtitle_link="https://wkevin.github.io/szzk",
+        subtitle_textstyle_opts=opts.TextStyleOpts(font_size=12),
+    )
+
+
+def get_title_with_date(titlestr: str = ""):
     return opts.TitleOpts(
         title=titlestr,
         title_link="https://wkevin.github.io/szzk",
@@ -239,21 +252,49 @@ df_school_info_2025 = pd.read_csv(f"./dataset/2025.csv", decimal=",")[
     ["代码", "学校名称", "办学性质"]
 ]
 
-# 用 2025 的学校名称刷新 df
-dfsort["学校名称"] = (
-    dfsort["代码"]
-    .map(df_school_info_2025.set_index("代码")["学校名称"])
-    .fillna(dfsort["学校名称"])
-)
-dfsort.update(df_school_info_2025.set_index("代码"))
+# 1. Drop old rank columns to prepare for recalculation
+dfsort.drop(columns=years, inplace=True, errors='ignore')
 
+# 2. Add new schools from 2025 list
+new_schools = df_school_info_2025[~df_school_info_2025["代码"].isin(dfsort["代码"])]
+if not new_schools.empty:
+    new_schools_with_scores = pd.merge(new_schools, df_score_ac, on="代码", how="left")
+    dfsort = pd.concat([dfsort, new_schools_with_scores], ignore_index=True)
+
+# 3. Update school names and properties for all schools using the 2025 info
+dfsort.set_index('代码', inplace=True)
+dfsort.update(df_school_info_2025.set_index('代码'))
+dfsort.reset_index(inplace=True)
+
+# 4. Recalculate ranks for all years on the now-complete dfsort
+l = len(dfsort)
+for y in years:
+    _l = len(dfsort[dfsort[f"[{y}]"].notnull()])
+    
+    if f"招生人数_{y}" in dfsort.columns.tolist():
+        dfsort = dfsort.sort_values(
+            by=[f"[{y}]", f"招生人数_{y}", "代码"], ascending=[False, False, True]
+        )
+    else:
+        dfsort = dfsort.sort_values(by=[f"[{y}]", "代码"], ascending=[False, True])
+
+    zs = np.zeros(l)
+    zs[:] = np.nan
+
+    for i in range(0, _l, 1):
+        zs[i] = i + 1
+    dfsort.insert(len(dfsort.columns), y, zs)
+
+# 5. Prepare for plotting
 # 去掉“学校名称”中的“（一）”
 dfsort["学校名称"] = dfsort["学校名称"].str.replace("（一）", "")
-# 仅保留有录取成绩的row（即：AC类）& 仅保留学校名称和年份排名 column
-dfsort = dfsort[dfsort[years_score].notnull().any(axis=1)][years + ["学校名称"]]
+
 # 把所有年份的成绩添加到“名称”列中，后面添加 tooltip 时使用
 for y in years:
-    dfsort["学校名称"] += "," + df[f"[{y}]"].astype(str)
+    dfsort["学校名称"] += "," + dfsort[f"[{y}]"].astype(str)
+
+# 仅保留有录取成绩的row（即：AC类）& 仅保留学校名称和年份排名 column
+dfsort = dfsort[dfsort[years_score].notnull().any(axis=1)][years + ["学校名称"]]
 dfsort.set_index(["学校名称"], inplace=True)
 (dfsort)
 ```
@@ -266,7 +307,7 @@ l = (
     Line(init_opts=opts.InitOpts(width="100%"))
     .add_xaxis(dfsort.columns.to_list())
     .set_global_opts(
-        title_opts=get_title("深圳高中排名演变图"),
+        title_opts=get_title_with_date("深圳高中排名演变图"),
         xaxis_opts=opts.AxisOpts(
             type_="category", position="top", boundary_gap=False  # 离散值
         ),
@@ -323,17 +364,14 @@ for name, row in dfsort.iterrows():
         label_opts=opts.LabelOpts(
             # is_show=False,
             formatter="{a}",  # 用 series_name 作为 label
-            position="right"
+            position="right",
         ),
     )
 
 
 grid = Grid(
     init_opts=opts.InitOpts(
-        width="100%",
-        height="1600px",
-        renderer='png', 
-        bg_color='white'
+        width="100%", height="1600px", renderer="png", bg_color="white"
     )
 )
 
