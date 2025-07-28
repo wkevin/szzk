@@ -50,31 +50,6 @@ enroll_number_2024_ac = (
 enroll_number_2024_d = enroll_number_2024 - enroll_number_2024_ac
 ```
 
-本文数据主要来自深圳招生办公室公开文件：
-
-- 2023年考生报考指导手册：[链接1](http://szeb.sz.gov.cn/szzkw/qt/tzgg/content/post_10610222.html)、[链接2](http://szeb.sz.gov.cn/szzkw/zkgg/zkxx/content/post_10610216.html)
-- [2024年考生报考指导手册](http://szeb.sz.gov.cn/szszsksbgs/zkcx/zkzz/2024zkwsxczxjd/ksbkzdsc/content/post_11303237.html)
-
-但也有几个关键数据是来自网络，这是导致录取比例、报考等级中的图与实际有偏差的主因：
-
-```{python}
-#| echo: false
-#| output: asis
-
-print(f"""
-- 报名人数: 
-    - 2023: 报名约 {enroll_number_2023} 人，AC 类约 {enroll_number_2023_ac} 人({int(ac_rate_2023*100)}%)，D 类约 {enroll_number_2023_d} 人。
-    - 2024: 报名约 {enroll_number_2024} 人，AC 类约 {enroll_number_2024_ac} 人({int(ac_rate_2024*100)}%)，D 类约 {enroll_number_2024_d} 人。
-- 指标生录取率: 报考等级中再做说明
-""")
-```
-
-网络参考源：
-
--  [2024年高中阶段学校招生计划发布](https://mp.weixin.qq.com/s/3oZ_jWBNPYajWd3NFAncTQ)
-
-**以上数据本人未能证实，不承担责任，仅供参考。**
-
 ```{python}
 # 全局变量
 g_toolbox_opts=opts.ToolboxOpts(
@@ -112,7 +87,7 @@ def get_title(titlestr: str = ""):
 #   engine: 默认为 'c', 还可以 'python'
 df_score_ac = pd.read_csv(
     f"./dataset/admit_score_ac.csv", decimal=",", dtype={f"[{scoredyear}]": float}
-).drop("学校名称", axis=1)
+)
 
 df_admit_number_2023 = pd.read_csv(
     f"./dataset/admit_number_2023.csv", decimal=","
@@ -258,10 +233,24 @@ def transpose_ac_and_d(year: str, only_gov=True, add_new_tag=True, df_input=None
 ```{python}
 # 演变图绘制到当前已出成绩的年份（scoredyear）
 dfsort = df.copy()
+
+# 从 2025年开始，不想再去抓取招生数据了，只做一下录取数据算了
+df_school_info_2025 = pd.read_csv(f"./dataset/2025.csv", decimal=",")[
+    ["代码", "学校名称", "办学性质"]
+]
+
+# 用 2025 的学校名称刷新 df
+dfsort["学校名称"] = (
+    dfsort["代码"]
+    .map(df_school_info_2025.set_index("代码")["学校名称"])
+    .fillna(dfsort["学校名称"])
+)
+dfsort.update(df_school_info_2025.set_index("代码"))
+
 # 去掉“学校名称”中的“（一）”
-dfsort["学校名称"] = df["学校名称"].str.replace("（一）", "")
+dfsort["学校名称"] = dfsort["学校名称"].str.replace("（一）", "")
 # 仅保留有录取成绩的row（即：AC类）& 仅保留学校名称和年份排名 column
-dfsort = dfsort[dfsort[scoredyear].notnull()][years + ["学校名称"]]
+dfsort = dfsort[dfsort[years_score].notnull().any(axis=1)][years + ["学校名称"]]
 # 把所有年份的成绩添加到“名称”列中，后面添加 tooltip 时使用
 for y in years:
     dfsort["学校名称"] += "," + df[f"[{y}]"].astype(str)
@@ -360,6 +349,31 @@ grid.add(
 grid.render_notebook()
 ```
 
+
+本文数据主要来自深圳招生办公室公开文件：
+
+- 2023年考生报考指导手册：[链接1](http://szeb.sz.gov.cn/szzkw/qt/tzgg/content/post_10610222.html)、[链接2](http://szeb.sz.gov.cn/szzkw/zkgg/zkxx/content/post_10610216.html)
+- [2024年考生报考指导手册](http://szeb.sz.gov.cn/szszsksbgs/zkcx/zkzz/2024zkwsxczxjd/ksbkzdsc/content/post_11303237.html)
+
+但也有几个关键数据是来自网络，这是导致录取比例、报考等级中的图与实际有偏差的主因：
+
+```{python}
+#| echo: false
+#| output: asis
+
+print(f"""
+- 报名人数: 
+    - 2023: 报名约 {enroll_number_2023} 人，AC 类约 {enroll_number_2023_ac} 人({int(ac_rate_2023*100)}%)，D 类约 {enroll_number_2023_d} 人。
+    - 2024: 报名约 {enroll_number_2024} 人，AC 类约 {enroll_number_2024_ac} 人({int(ac_rate_2024*100)}%)，D 类约 {enroll_number_2024_d} 人。
+- 指标生录取率: 报考等级中再做说明
+""")
+```
+
+网络参考源：
+
+-  [2024年高中阶段学校招生计划发布](https://mp.weixin.qq.com/s/3oZ_jWBNPYajWd3NFAncTQ)
+
+**以上数据本人未能证实，不承担责任，仅供参考。**
 
 ## 学校数量
 

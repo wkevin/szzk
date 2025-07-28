@@ -37,24 +37,27 @@ nbdev_install_hooks             # 设置 hook，清理 metadata
 
 ### 从源码恢复项目
 
-- `pip install nbdev` & `pip install -e .` 利用 setup.py 安装项目及其依赖包
-
-或
-
-- 手工安装 nbdev 及其依赖包
-  ```bash
-  pip install notebook nbdev
-  pip install pandas numpy
-  pip install matplotlib plotly pyecharts
+- 创建虚拟环境
+  ```sh
+  cd szzk
+  python -m venv .venv
+  source .venv/bin/activate
   ```
-
-然后安装 quarto：
-
-```
-nbdev_install_quarto
-```
-
-或 [quarto](https://quarto.org/docs/get-started/)
+- 安装依赖(2 选 1)
+  - 利用 setup.py 安装项目及其依赖包
+    ```
+    pip install -e .
+    ```
+  - 手工安装 nbdev 及其依赖包
+    ```bash
+    pip install notebook nbdev
+    pip install pandas numpy
+    pip install matplotlib plotly pyecharts
+    ```
+- 安装 [quarto](https://quarto.org/docs/get-started/)：
+  ```
+  nbdev_install_quarto
+  ```
 
 ### 撰写、预览文档
 
